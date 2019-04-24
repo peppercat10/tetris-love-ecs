@@ -231,8 +231,6 @@ function PieceControlSystem:move(piece,board,direction)
             end
         end
     end
-    printGrid(boardGrid)
-    print("=")  
 end
 
 function PieceControlSystem:isMovePossible(pieceGrid, boardGrid, x, y)
