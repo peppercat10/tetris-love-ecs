@@ -8,49 +8,6 @@ local System    = Concord.system
 local Game = Concord.instance()
 Concord.addInstance(Game)
 
-local Position = Component(function(e, x, y)
-   e.x = x
-   e.y = y
-end)
-
-local Grid = Component(function(e, cellSize, grid)
-   e.cellSize = cellSize
-   e.grid = grid
-end)
-
-local Controllable = Component()
-
-local Color = Component(function(e,value)
-   e.value = value
-   end)
-
-local Input = Component(function(e,keys)
-   e.inputs = {}
-   for i=1,#keys do
-    e.inputs[keys[i]] = false
-   end
-   end)
-
-local ARR = Component(function(e,rate)
-   e.max = 1.0 / rate
-   e.current = 0
-   end)
-
-local DAS = Component(function(e,value)
-   e.max = value
-   e.current = 0
-   e.activated = false
-   end)
-
-local isBoard = Component()
-
-local mt = {
-   {0,1,0},
-   {1,1,1},
-   {0,0,0}
-   }
-
--- Could be done with a for cycle, but this helps visualising the representation of the board state
 local board = {
 	{0,0,0,0,0,0,0,0,0,0},
 	{0,0,0,0,0,0,0,0,0,0},
@@ -75,225 +32,162 @@ local board = {
 }
 
 
-local e = Entity()
-e:give(Position,250,125)
-e:give(Grid,20,board)
-e:give(Color,4)
-e:give(isBoard)
-Game:addEntity(e)
+math.randomseed(os.time() )
+local piece_list = {"O","L","S","Z","I","J","T"}
 
-local inputKeys = {left = false,right = false,up = false,down = false,space = false,c = false,x = false}
+local colorPatterns = {{1,1,1},{1,0,0},{0,1,0},{0,0,1}}
 
-local e = Entity()
-e:give(Position,4,2)
-e:give(Grid,20,mt)
-e:give(Controllable)
-e:give(Color,1)
-e:give(Input,{"left","right","up","down","space","c","x"})
-e:give(ARR,30)
-e:give(DAS,0.132)
---30
---0.132
-
-Game:addEntity(e)
-
-colorPatterns = {{1,0,0},{0,1,0},{0,0,1},{1,1,1}}
-
-local BoardRenderer = System({isBoard})
-function BoardRenderer:draw()
-    local e
-    local squareColor
-    for i = 1, self.pool.size do
-        e = self.pool:get(i)
-        local position = e:get(Position)
-        local grid = e:get(Grid)
-        local boardLineColor = e:get(Color).value
-        local cellSize = grid.cellSize
-        for i = 1, #grid.grid do
-            for j = 1, #grid.grid[1] do
-                if grid.grid[i][j]~=0 then
-                    squareColor = colorPatterns[grid.grid[i][j]]
-                    love.graphics.setColor(squareColor)
-                    love.graphics.rectangle("fill",position.x + (cellSize*j),position.y + (cellSize*i),cellSize,cellSize)
-                end
-                love.graphics.setColor(colorPatterns[boardLineColor])
-                love.graphics.rectangle("line",position.x + (cellSize*j),position.y + (cellSize*i),cellSize,cellSize)
-            end
-        end
-    end
+--### HELPER FUNCTIONS START
+function deepcopy(orig)
+   local orig_type = type(orig)
+   local copy
+   if orig_type == 'table' then
+       copy = {}
+       for orig_key, orig_value in next, orig, nil do
+           copy[deepcopy(orig_key)] = deepcopy(orig_value)
+       end
+       setmetatable(copy, deepcopy(getmetatable(orig)))
+   else -- number, string, boolean, etc
+       copy = orig
+   end
+   return copy
 end
 
-
-local InputSystem = System({Input})
-function InputSystem:update()
-   local e
-   local right = false
-   local left = false
-   if love.keyboard.isDown("right") then
-      right = true
-   elseif love.keyboard.isDown("left") then
-      left = true
+function printGrid(grid)
+   for i=1,#grid do
+       local finalLine = ""
+       for j=1,#grid[1] do
+           finalLine = finalLine .. grid[i][j] .. " "
+     end
+       print(finalLine)
    end
+   print("====")
+end
+
+function shuffle(tbl)
+   local size = #tbl
+   for i = size, 1, -1 do
+     local rand = math.random(i)
+     tbl[i], tbl[rand] = tbl[rand], tbl[i]
+   end
+   return tbl
+ end
+
+--### HELPER FUNCTIONS END
+
+
+
+--### COMPONENTS START
+local Position = Component(function(e, x, y)
+   e.x = x
+   e.y = y
+end)
+
+local Grid = Component(function(e, grid)
+   e.grid = deepcopy(grid)
+end)
+
+local CellSize = Component(function(e, cell_size)
+   e.cell_size = cell_size
+end) 
+
+local isActive = Component()
+
+local IsBoard = Component()
+
+local Color = Component(function(e,value)
+   e.color = value
+   end)
+
+local ColorValues = Component(function(e,values)
+	e.color_values = values
+	end)
+
+local Input = Component(function(e,keys)
+   e.inputs = {}
+   for i=1,#keys do
+    e.inputs[keys[i]] = false
+   end
+   end)
+
+local ARR = Component(function(e,rate)
+   e.max = 1.0 / rate
+   e.current = 0
+   end)
+
+local DAS = Component(function(e,value)
+   e.max = value
+   e.current = 0
+   e.activated = false
+   end)
+
+local PieceBucket = Component(function(e)
+   e.pieces = {}
+end)
+
+local PieceList = Component(function(e,pieces)
+   e.pieces = pieces
+end)
+--### COMPONENTS END
+
+
+--### ENTITIES START
+local brd = Entity()
+brd:give(Position,250,125)
+brd:give(Grid,board)
+brd:give(CellSize,20)
+brd:give(Color,1)
+brd:give(ColorValues,colorPatterns)
+brd:give(IsBoard)
+brd:give(PieceBucket)
+--brd:give(PieceList, {"O","L","S","Z","I","J","T"})
+Game:addEntity(brd)
+--### ENTITIES END
+
+--### SYSTEMS START
+local BoardRendererSystem = System({IsBoard})
+function BoardRendererSystem:draw()
+
+   local brd
    for i = 1, self.pool.size do
-      e = self.pool:get(i)
-      if right then
-         e:get(Input).pressed = true
-         e:get(Input).key = "right"
-      elseif left then
-         e:get(Input).pressed = true
-         e:get(Input).key = "left"         
-      else   
-         e:get(Input).pressed = false
+      brd = self.pool:get(i)
+
+      local brd_grid = brd:get(Grid).grid
+      local brd_position = brd:get(Position)
+      local color_values = brd:get(ColorValues).color_values
+      local brd_color = color_values[brd:get(Color).color]
+      local cell_size = brd:get(CellSize).cell_size
+      local square_color,square_number
+
+      for n = 1, #brd_grid do
+         for m = 1, #brd_grid[1] do
+            square_number = brd_grid[n][m]
+            if square_number ~= 0 then
+               square_color = color_values[square_number]
+               love.graphics.setColor(square_color)
+               love.graphics.rectangle("fill",brd_position.x + (cell_size*m),brd_position.y + (cell_size*n),cell_size,cell_size)
+            end
+            love.graphics.setColor(brd_color)
+            love.graphics.rectangle("line", brd_position.x + (cell_size*m), brd_position.y + (cell_size*n),cell_size,cell_size)
+         end
       end
    end
 end
 
-local PieceInputSystem = System({Input,Controllable})
-function PieceInputSystem:update(dt)
-    local e
-    for i = 1, self.pool.size do
-        e= self.pool:get(i)
-        local input = e:get(Input).inputs
-        local das = e:get(DAS)
-        for k,v in pairs(input) do
-            if(love.keyboard.isDown(k)) then
-                input[k] = true
-            else
-                input[k] = false
-            end
-        end
-    end
+local PieceBucketSystem = System({PieceBucket})
+function PieceBucketSystem:update()
+   local piece_bucket
+   for i = 1, self.pool.size do
+      piece_bucket = self.pool:get(i)
+      if #piece_bucket <= 7 then
+         new_bucket = shuffle(piece_list)
+         for k,v in pairs(new_bucket) do table.insert(piece_bucket, v) end
+      end
+   end
 end
 
 
-local PieceControlSystem = System({Grid})
-function PieceControlSystem:moveHorizontally(piece,board,dt)
-    local input = piece:get(Input).inputs
-    local das = piece:get(DAS)
-    local arr = piece:get(ARR)
-    if input["left"] and input["right"] then
-        das.activated = false
-        das.current = 0
-        return 
-    end
-    local cellSize = piece:get(Grid).cellSize
-    if das.activated and arr.current <= arr.max then
-        arr.current = arr.current + dt
-        return
-    else
-        arr.current = 0
-    end
 
-    if input["left"] then
-        PieceControlSystem:move(piece,board,"left")
-    elseif input["right"] then
-        PieceControlSystem:move(piece,board,"right")
-    end
-end
-
-function PieceControlSystem:move(piece,board,direction)
-    local piecePosition = piece:get(Position)
-    local pieceGrid = piece:get(Grid).grid
-    local boardGrid = board:get(Grid).grid
-
-    -- Clear piece from previous state
-    for i=1,#pieceGrid do
-        for j=1,#pieceGrid[1] do
-            if pieceGrid[i][j] ~= 0 then
-                boardGrid[i+piecePosition.y][j+piecePosition.x] = 0
-            end
-        end
-    end
-  
-    -- Add piece to new state
-    if direction == "left" then 
-        local newX = piece:get(Position).x - 1
-        if PieceControlSystem:isMovePossible(pieceGrid,boardGrid,newX,piecePosition.y) then
-            piece:get(Position).x = piece:get(Position).x - 1
-        end
-      elseif direction == "right" then 
-        local newX = piece:get(Position).x + 1
-        if PieceControlSystem:isMovePossible(pieceGrid,boardGrid,newX,piecePosition.y) then
-            piece:get(Position).x = piece:get(Position).x + 1
-        end
-      elseif direction == "down" then 
-        local newY = piece:get(Position).y + 1
-        if PieceControlSystem:isMovePossible(pieceGrid,boardGrid,piecePosition.x,newY) then
-            piece:get(Position).y = piece:get(Position).y + 1
-        end
-    end
-
-    local color = piece:get(Color).value
-    for i=1,#pieceGrid do
-        for j=1,#pieceGrid[1] do
-            if pieceGrid[i][j] ~= 0 then
-                boardGrid[i+piecePosition.y][j+piecePosition.x] = pieceGrid[i][j]*color
-            end
-        end
-    end
-end
-
-function PieceControlSystem:isMovePossible(pieceGrid, boardGrid, x, y)
-    for i=1,#pieceGrid do
-        for j=1,#pieceGrid[1] do
-            if pieceGrid[i][j] ~= 0 then
-                if i + y > #boardGrid then return false end
-                if pieceGrid[i][j] and boardGrid[i + y][j + x] ~= 0 then
-                    return false
-                end
-            end
-        end
-    end
-    return true
-end
-
-function PieceControlSystem:moveDown(piece,board,dt)
-    local input = piece:get(Input).inputs
-    local cellSize = piece:get(Grid).cellSize
-    PieceControlSystem:move(piece,board,"down")
-    --e:get(Position).y = e:get(Position).y + 1
-end
-
-function PieceControlSystem:update(dt)
-    local piece,board
-    for i = 1, self.pool.size do
-        if self.pool:get(i):get(Controllable) then
-            piece = self.pool:get(i)
-        elseif self.pool:get(i):get(isBoard) then
-            board = self.pool:get(i)
-        end
-    end
-    local input = piece:get(Input).inputs
-    local das = piece:get(DAS)
-    if input["down"] then PieceControlSystem:moveDown(piece,board,dt) end
-    if input["left"] or input["right"] then 
-        if not das.activated then
-            PieceControlSystem:moveHorizontally(piece,board,dt)
-            das.activated = true
-        elseif das.activated and das.current <= das.max then
-            das.current = das.current + dt
-        else
-            PieceControlSystem:moveHorizontally(piece,board,dt)
-        end
-    else
-        das.activated = false
-        das.current = 0
-    end
-end
-
-
-function printGrid(grid)
-    for i=1,#grid do
-        local finalLine = ""
-        for j=1,#grid[1] do
-            finalLine = finalLine .. grid[i][j] .. " "
-        end
-        print(finalLine)
-    end
-end
-
-
-Game:addSystem(PieceInputSystem(), "update")
-Game:addSystem(PieceControlSystem(), "update")
---Game:addSystem(PieceRenderer(), "draw")
-Game:addSystem(BoardRenderer(), "draw")
+Game:addSystem(PieceBucketSystem(), "update")
+Game:addSystem(BoardRendererSystem(), "draw")
+--### SYSTEMS END
