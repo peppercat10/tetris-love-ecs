@@ -226,6 +226,13 @@ local Input = Component(function(e,keys)
      e.inputs[keys[i]] = false
     end
     end)
+
+local LastInput = Component(function(e,keys)
+    e.inputs = {}
+    for i=1,#keys do
+        e.inputs[keys[i]] = false
+    end
+    end)    
 --### COMPONENTS END
 
 
@@ -236,7 +243,7 @@ brd:give(Grid,board)
 brd:give(CellSize,20)
 brd:give(Color,1)
 brd:give(ColorValues,colorPatterns)
-brd:give(IsBoard)
+brd:give(IsBoard):give(LastInput,{"left","right","up","down","space","c","z"})
 brd:give(PieceBucket):give(Input,{"left","right","up","down","space","c","z"})
 brd:give(VisiblePieces):give(LastAction)
 --brd:give(VisibilityLimit,20)
@@ -540,7 +547,7 @@ local PieceLockerSystem = System({IsActive,"piecePool"},{IsBoard,"boardPool"})
 function PieceLockerSystem:lock(piece,board)
    piece:get(IsActive).active = false
    table.remove(board:get(VisiblePieces).pieces,1)
-   print("locked!")
+   --print("locked!")
 end
 function PieceLockerSystem:update()
    local active_piece,active_board,last_action,can_go_down
@@ -631,10 +638,38 @@ function MovementSystem:update()
 end
 
 local InstantPlacementSystem = System({IsActive,"piecePool"},{IsBoard,"boardPool"})
+function InstantPlacementSystem:PlaceInstantly(piece,board)
+    local board_grid = board:get(Grid).grid
+    local last_non_collision = 1
+    for i = 1, #board_grid  do
+        if not IsCollision(piece,board,"down") then
+            last_non_collision = last_non_collision + 1
+            print(last_non_collision)
+        else 
+            break
+        end
+    end
+    piece:get(MutablePosition).y = last_non_collision
+end
+
 function InstantPlacementSystem:update()
-    local active_board, active_piece
+    local active_board, active_piece, current_input, last_input
     for i = 1, self.boardPool.size do
         active_board = self.boardPool:get(i)
+        current_input = active_board:get(Input).inputs
+        last_input = active_board:get(LastInput).inputs
+        print(last_input.space)
+        if current_input.space == true and last_input.space == false then
+            for j = 1, self.piecePool.size do
+                active_piece = self.piecePool:get(j)
+                if active_piece:get(IsActive).active then          
+                    InstantPlacementSystem:PlaceInstantly(active_piece,active_board)
+                    last_input.space = true
+                else
+                    last_input.space = false
+                end
+            end
+        end
     end
 end
 
@@ -646,6 +681,7 @@ Game:addSystem(ActivePieceSetterSystem(), "update")
 Game:addSystem(MovementSystem(),          "update")
 Game:addSystem(PieceGravitySystem(),      "update")
 Game:addSystem(PieceLockerSystem(),       "update")
+Game:addSystem(InstantPlacementSystem(),  "update")
 
 
 Game:addSystem(BoardRendererSystem(),          "draw")
