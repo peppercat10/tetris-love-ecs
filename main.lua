@@ -12,7 +12,7 @@ local board = {
 	{0,0,0,0,0,0,0,0,0,0},
 	{0,0,0,0,0,0,0,0,0,0},
 	{0,0,0,0,0,0,0,0,0,0},
-	{0,0,0,0,1,0,0,0,0,0},
+	{0,0,0,0,0,0,0,0,0,0},
 	{0,0,0,0,0,0,0,0,0,0},
 	{0,0,0,0,0,0,0,0,0,0},
 	{0,0,0,0,0,0,0,0,0,0},
@@ -446,26 +446,49 @@ function changePieceOnBoard(piece,board,color)
 end
 
 function isCollision(piece,board,direction)
-    local piece_grid = piece:get(Grid).grid
-    local board_grid = board:get(Grid).grid
-    local current_square,test_square,square_in_board
-
-    if direction == "down" then
+   local piece_grid = piece:get(Grid).grid
+   local piece_mutpos = piece:get(MutablePosition)
+   local board_grid = board:get(Grid).grid
+   --local current_square,test_square,square_in_board
+   local current_square_color,test_square_color
+   local n_value = 0
+   local m_value = 0
+   if direction == "down" then
+      n_value = 1
+   elseif direction == "left" then
+      m_value = -1
+   elseif direction == "right" then
+      m_value = 1
+   end
         --Step 1: iterate through all piece squares, ignore squares that belong to the piece and have another occupied square below them
-        local current_square_color
-        for n=1, #piece_grid do
-            for m=1, #piece_grid do
-                current_square_color = piece_grid[n][m]
-                
+        
+   for n=1, #piece_grid do
+      for m=1, #piece_grid[1] do
+         current_square_color = piece_grid[n][m]
+         if current_square_color ~= 0 then --colored square
+            if piece_grid[n+n_value] == nil or piece_grid[n+n_value][m + m_value] == nil 
+                        or piece_grid[n+n_value][m + m_value] == 0 then --this square must be tested against the board
+               if board_grid[piece_mutpos.y + n + n_value] == nil 
+                        or board_grid[piece_mutpos.y + n + n_value][piece_mutpos.x + m + m_value] ~= 0 then --still inside boundaries
+                  
+                  return true
+                  --if board_grid[piece_mutpos.y + n + 1][m] == 1 then
+                     --return true
+                  
+               end
             end
-        end
-    end
+         end
+      end
+   end
+    return false
 end
+
+
 
 local PieceGravitySystem = System({IsActive,"piecePool"},{IsBoard,"boardPool"})
 function PieceGravitySystem:pushDown(piece,board)
     -- Clear previous position
-    if isCollision(piece,board,"down") then
+    if isCollision(piece,board,"down") == true then
         return
     end
     changePieceOnBoard(piece,board,0)
