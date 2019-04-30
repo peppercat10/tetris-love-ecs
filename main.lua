@@ -11,6 +11,8 @@ Concord.addInstance(Game)
 local board = {    
 	{0,0,0,0,0,0,0,0,0,0},
 	{0,0,0,0,0,0,0,0,0,0},
+    {0,0,0,0,0,0,0,0,0,0},
+	{0,0,0,0,0,0,0,0,0,0},
 	{0,0,0,0,0,0,0,0,0,0},
 	{0,0,0,0,0,0,0,0,0,0},
 	{0,0,0,0,0,0,0,0,0,0},
@@ -39,10 +41,60 @@ local I_matrix = {
     {0,0,0,0}
 }
 
+local I_rotations = {
+    {
+        {0,0,0,0},
+        {1,1,1,1},
+        {0,0,0,0},
+        {0,0,0,0}
+    },
+    {
+        {0,0,1,0},
+        {0,0,1,0},
+        {0,0,1,0},
+        {0,0,1,0}
+    },
+    {
+        {0,0,0,0},
+        {0,0,0,0},
+        {1,1,1,1},
+        {0,0,0,0}
+    },
+    {
+        {0,1,0,0},
+        {0,1,0,0},
+        {0,1,0,0},
+        {0,1,0,0}
+    },    
+}
+
 local J_matrix = {
     {1,0,0},
     {1,1,1},
     {0,0,0}
+}
+
+local J_rotations = {
+    {
+        {1,0,0},
+        {1,1,1},
+        {0,0,0}
+    },
+    {
+        {0,1,1},
+        {0,1,0},
+        {0,1,0}
+    },
+    {
+        {0,0,0},
+        {1,1,1},
+        {0,0,1}
+    },
+    {
+        {0,1,0},
+        {0,1,0},
+        {1,1,0}
+    },    
 }
 
 local L_matrix = {
@@ -51,9 +103,51 @@ local L_matrix = {
     {0,0,0}
 }
 
+local L_rotations = {
+    {
+        {0,0,1},
+        {1,1,1},
+        {0,0,0}
+    },
+    {
+        {0,1,0},
+        {0,1,0},
+        {0,1,1}
+    },
+    {
+        {0,0,0},
+        {1,1,1},
+        {1,0,0}
+    },
+    {
+        {1,1,0},
+        {0,1,0},
+        {0,1,0}
+    },    
+}
+
 local O_matrix = {
     {1,1},
     {1,1}
+}
+
+local O_rotations = {
+    {
+        {1,1},
+        {1,1}
+    },
+    {
+        {1,1},
+        {1,1}
+    },
+    {
+        {1,1},
+        {1,1}
+    },
+    {
+        {1,1},
+        {1,1}
+    },    
 }
 
 local S_matrix = {
@@ -62,10 +156,56 @@ local S_matrix = {
     {0,0,0}
 }
 
+local S_rotations = {
+    {
+        {0,1,1},
+        {1,1,0},
+        {0,0,0}
+    },
+    {
+        {0,1,0},
+        {0,1,1},
+        {0,0,1}
+    },
+    {
+        {0,0,0},
+        {0,1,1},
+        {1,1,0},
+    },
+    {
+        {1,0,0},
+        {1,1,0},
+        {0,1,0}
+    },    
+}
+
 local T_matrix = {
     {0,1,0},
     {1,1,1},
     {0,0,0}
+}
+
+local T_rotations = {
+    {
+        {0,1,0},
+        {1,1,1},
+        {0,0,0}
+    },
+    {
+        {0,1,0},
+        {0,1,1},
+        {0,1,0}
+    },
+    {
+        {0,0,0},
+        {1,1,1},
+        {0,1,0}
+    },
+    {
+        {0,1,0},
+        {1,1,0},
+        {0,1,0}
+    },    
 }
 
 local Z_matrix = {
@@ -74,11 +214,36 @@ local Z_matrix = {
     {0,0,0}
 }
 
+local Z_rotations = {
+    {
+        {1,1,0},
+        {0,1,1},
+        {0,0,0}
+    },
+    {
+        {0,0,1},
+        {0,1,1},
+        {0,1,0}
+    },
+    {
+        {0,0,0},
+        {1,1,0},
+        {0,1,1},
+    },
+    {
+        {0,1,0},
+        {1,1,0},
+        {1,0,0}
+    },    
+}
+
+
 local piece_matrices = {I = I_matrix, J = J_matrix, L = L_matrix, O = O_matrix,S=S_matrix,T=T_matrix,Z = Z_matrix}
 
 
 math.randomseed(os.time() )
 local piece_list = {"O","L","S","Z","I","J","T"}
+--local piece_list = {"O","O","O","Z","O","J","T"}
 
 local colorPatterns = {
     {1,1,1},
@@ -232,13 +397,18 @@ local LastInput = Component(function(e,keys)
     for i=1,#keys do
         e.inputs[keys[i]] = false
     end
-    end)    
+    end)
+
+local Rotations = Component(function(e,rotations)
+    e.rotations = rotations
+    e.current_rotation = 1
+end)
 --### COMPONENTS END
 
 
 --### ENTITIES START
 local brd = Entity()
-brd:give(Position,250,125)
+brd:give(Position,250,100)
 brd:give(Grid,board)
 brd:give(CellSize,20)
 brd:give(Color,1)
@@ -246,63 +416,65 @@ brd:give(ColorValues,colorPatterns)
 brd:give(IsBoard):give(LastInput,{"left","right","up","down","space","c","z"})
 brd:give(PieceBucket):give(Input,{"left","right","up","down","space","c","z"})
 brd:give(VisiblePieces):give(LastAction)
+brd:give(DAS,0.132)
+brd:give(ARR,30)
 --brd:give(VisibilityLimit,20)
 Game:addEntity(brd)
 
 local piece_J = Entity()
-piece_J:give(Grid,J_matrix)
+piece_J:give(Grid,J_matrix):give(Rotations,J_rotations)
 piece_J:give(Color,2)
 piece_J:give(IsPiece)
 piece_J:give(Name,"J"):give(CanGoDown)
-piece_J:give(IsActive,false):give(Position,3,0):give(MutablePosition,3,0)
+piece_J:give(IsActive,false):give(Position,3,1):give(MutablePosition,3,1)
 Game:addEntity(piece_J)
 
 local piece_L = Entity()
-piece_L:give(Grid,L_matrix)
+piece_L:give(Grid,L_matrix):give(Rotations,L_rotations)
 piece_L:give(Color,3)
 piece_L:give(IsPiece)
 piece_L:give(Name,"L"):give(CanGoDown)
-piece_L:give(IsActive,false):give(Position,3,0):give(MutablePosition,3,0)
+piece_L:give(IsActive,false):give(Position,3,1):give(MutablePosition,3,1)
 Game:addEntity(piece_L)
 
 local piece_T = Entity()
-piece_T:give(Grid,T_matrix)
+piece_T:give(Grid,T_matrix):give(Rotations,T_rotations)
 piece_T:give(Color,4)
 piece_T:give(IsPiece)
 piece_T:give(Name,"T"):give(CanGoDown)
-piece_T:give(IsActive,false):give(Position,3,0):give(MutablePosition,3,0)
+piece_T:give(IsActive,false):give(Position,3,1):give(MutablePosition,3,1)
 Game:addEntity(piece_T)
 
 local piece_S = Entity()
-piece_S:give(Grid,S_matrix)
+piece_S:give(Grid,S_matrix):give(Rotations,S_rotations)
 piece_S:give(Color,5)
 piece_S:give(IsPiece)
 piece_S:give(Name,"S"):give(CanGoDown)
-piece_S:give(IsActive,false):give(Position,3,0):give(MutablePosition,3,0)
+piece_S:give(IsActive,false):give(Position,3,1):give(MutablePosition,3,1)
 Game:addEntity(piece_S)
 
 local piece_Z = Entity()
-piece_Z:give(Grid,Z_matrix)
+piece_Z:give(Grid,Z_matrix):give(Rotations,Z_rotations)
 piece_Z:give(Color,6)
 piece_Z:give(IsPiece)
 piece_Z:give(Name,"Z"):give(CanGoDown)
-piece_Z:give(IsActive,false):give(Position,3,0):give(MutablePosition,3,0)
+piece_Z:give(IsActive,false):give(Position,3,1):give(MutablePosition,3,1)
 Game:addEntity(piece_Z)
 
 local piece_I = Entity()
-piece_I:give(Grid,I_matrix)
+piece_I:give(Grid,I_matrix):give(Rotations,I_rotations)
 piece_I:give(Color,7)
 piece_I:give(IsPiece)
 piece_I:give(Name,"I"):give(CanGoDown)
-piece_I:give(IsActive,false):give(Position,3,0):give(MutablePosition,3,0)
+piece_I:give(IsActive,false):give(Position,3,1):give(MutablePosition,3,1)
 Game:addEntity(piece_I)
 
 local piece_O = Entity()
-piece_O:give(Grid,O_matrix)
+piece_O:give(Grid,O_matrix):give(Rotations,O_rotations)
 piece_O:give(Color,8)
 piece_O:give(IsPiece)
 piece_O:give(Name,"O"):give(CanGoDown)
-piece_O:give(IsActive,false):give(Position,4,0):give(MutablePosition,4,0)
+piece_O:give(IsActive,false):give(Position,4,1):give(MutablePosition,4,1)
 Game:addEntity(piece_O)
 
 
@@ -323,7 +495,7 @@ function BoardRendererSystem:draw()
       local cell_size = brd:get(CellSize).cell_size
       local square_color,square_number
       --local visibility_limit = brd:get(VisibilityLimit).limit
-      for n = 1, #brd_grid do
+      for n = 3, #brd_grid do
          for m = 1, #brd_grid[1] do
             square_number = brd_grid[n][m]
             if square_number ~= 0 then
@@ -384,7 +556,7 @@ function IncomingPiecesRendererSystem:draw()
         future_pieces = board:get(VisiblePieces).pieces
         cell_size = board:get(CellSize).cell_size
         x_draw = cell_size * (#board:get(Grid).grid + 3.5)
-        y_draw = board:get(Position).y
+        y_draw = board:get(Position).y + cell_size*2
         y_gap = cell_size * 3
         if #future_pieces > 0 then
             local y_current = y_draw
@@ -417,6 +589,7 @@ function ActivePieceSetterSystem:update()
     for i = 1, self.boardPool.size do
         visible_pieces = self.boardPool:get(i):get(VisiblePieces).pieces
         board_grid = self.boardPool:get(i):get(Grid).grid
+        self.boardPool:get(i):get(LastAction).value = 0
         if not visible_pieces[1] then
             return
         else
@@ -433,12 +606,13 @@ function ActivePieceSetterSystem:update()
         local piece_position = active_piece:get(Position)
         active_piece:get(MutablePosition).x = piece_position.x
         active_piece:get(MutablePosition).y = piece_position.y
+        active_piece:get(CanGoDown).can_go_down = true
         local color_number = active_piece:get(Color).color
         local current_cell_to_add
         for n = 1, #piece_grid do
             for m = 1, #piece_grid[1] do
                 if piece_grid[n][m] ~= 0 then
-                    current_cell_to_add = {y = n+piece_position.y, x = m+piece_position.x }
+                    current_cell_to_add = {y = n + piece_position.y, x = m+piece_position.x }
                     board_grid[current_cell_to_add.y][current_cell_to_add.x] = color_number
                 end
             end
@@ -448,7 +622,8 @@ end
 
 
 function changePieceOnBoard(piece,board,color)
-    local piece_grid = piece:get(Grid).grid
+    --local piece_grid = piece:get(Grid).grid
+    local piece_grid = piece:get(Rotations).rotations[piece:get(Rotations).current_rotation]
     --printGrid(piece_grid)
     local board_grid = board:get(Grid).grid
     local piece_position = piece:get(MutablePosition)
@@ -464,7 +639,8 @@ function changePieceOnBoard(piece,board,color)
 end
 
 function IsCollision(piece,board,direction)
-   local piece_grid = piece:get(Grid).grid
+   --local piece_grid = piece:get(Grid).grid
+   local piece_grid = piece:get(Rotations).rotations[piece:get(Rotations).current_rotation]
    local piece_mutpos = piece:get(MutablePosition)
    local board_grid = board:get(Grid).grid
    --local current_square,test_square,square_in_board
@@ -563,7 +739,7 @@ function PieceLockerSystem:update()
             can_go_down = active_piece:get(CanGoDown).can_go_down
             --print(active_piece:get(Name).name)
             --print(can_go_down)
-            if last_action >= 0.5 and can_go_down == false then
+            if last_action >= 0.9 and can_go_down == false then
                 PieceLockerSystem:lock(active_piece,active_board)
             end
         end
@@ -577,12 +753,14 @@ function InputSystem:update(dt)
     for i = 1, self.pool.size do
         e = self.pool:get(i)
         local input = e:get(Input).inputs
+        local last_input = e:get(LastInput).inputs
         --local das = e:get(DAS)
         for k,v in pairs(input) do
             if(love.keyboard.isDown(k)) then
                 input[k] = true
             else
                 input[k] = false
+                last_input[k] = false
             end
         end
     end
@@ -607,7 +785,25 @@ function MovementSystem:MoveDown(piece,board)
     changePieceOnBoard(piece,board,piece:get(Color).color)    
 end
 
-function MovementSystem:update()
+function MovementSystem:CanMoveDAS(board,direction,dt)
+    local das = board:get(DAS)
+    local last_input = board:get(LastInput).inputs
+
+    if last_input[direction] == false then
+        das.current = 0
+        return true
+    end
+    if das.current >= das.max then
+        return true
+    else
+        das.current = das.current + dt
+        return false
+    end
+
+
+end
+
+function MovementSystem:update(dt)
     local active_board, active_piece, cell_size, inputs
     for i = 1, self.boardPool.size do
         active_board = self.boardPool:get(i)
@@ -616,15 +812,35 @@ function MovementSystem:update()
         for j = 1, self.piecePool.size do
             if self.piecePool:get(j):get(IsActive).active then
                 active_piece = self.piecePool:get(j)
+                local das = active_board:get(DAS)
+                local last_inputs = active_board:get(LastInput).inputs
+                if inputs.space then
+                    local grid_size = #active_board:get(Grid).grid
+                    
+                    for i = 1, grid_size  do
+                        if last_inputs.space == false then
+                            active_board:get(LastAction).value = 1.0
+                            if not IsCollision(active_piece,active_board,"down") and last_inputs.space == false then
+                                MovementSystem:MoveDown(active_piece,active_board)
+                            else 
+                                last_inputs.space = true
+                                break
+                            end
+                        end
+                    end
+                end
 
-                if inputs.left then
+
+                if inputs.left and MovementSystem:CanMoveDAS(active_board,"left",dt) then
                     if not IsCollision(active_piece,active_board,"left") then
                         MovementSystem:MoveLeft(active_piece,active_board)
+                        last_inputs.left = true
                     end
 
-                elseif inputs.right then
+                elseif inputs.right and MovementSystem:CanMoveDAS(active_board,"right",dt) then
                     if not IsCollision(active_piece,active_board,"right") then
                         MovementSystem:MoveRight(active_piece,active_board)
+                        last_inputs.right = true
                     end
 
                 elseif inputs.down then
@@ -632,6 +848,7 @@ function MovementSystem:update()
                         MovementSystem:MoveDown(active_piece,active_board)
                     end
                 end
+                
             end
         end
     end
@@ -643,13 +860,11 @@ function InstantPlacementSystem:PlaceInstantly(piece,board)
     local last_non_collision = 1
     for i = 1, #board_grid  do
         if not IsCollision(piece,board,"down") then
-            last_non_collision = last_non_collision + 1
-            print(last_non_collision)
+            MovementSystem:MoveDown(piece,board)
         else 
             break
         end
     end
-    piece:get(MutablePosition).y = last_non_collision
 end
 
 function InstantPlacementSystem:update()
@@ -658,22 +873,48 @@ function InstantPlacementSystem:update()
         active_board = self.boardPool:get(i)
         current_input = active_board:get(Input).inputs
         last_input = active_board:get(LastInput).inputs
-        print(last_input.space)
-        if current_input.space == true and last_input.space == false then
+        print(current_input.space)
+        if current_input.space == true --[[ and last_input.space == false ]] then
             for j = 1, self.piecePool.size do
                 active_piece = self.piecePool:get(j)
                 if active_piece:get(IsActive).active then          
                     InstantPlacementSystem:PlaceInstantly(active_piece,active_board)
-                    last_input.space = true
+                    --last_input.space = true
                 else
-                    last_input.space = false
+                    --last_input.space = false
                 end
             end
         end
     end
 end
 
+local RotationSystem = System({IsBoard,"boardPool"},{IsActive,"piecePool"})
+function RotationSystem:update()
+    local active_board, active_piece, current_input, last_input
+    for i = 1, self.boardPool.size do
+        active_board = self.boardPool:get(i)
+        current_input = active_board:get(Input).inputs
+        last_input = active_board:get(LastInput).inputs
+        
+        for j = 1, self.piecePool.size do
+            active_piece = self.piecePool:get(j)
+            local rotations = active_piece:get(Rotations)
+            if active_piece:get(IsActive).active then
+                if current_input.up == true and last_input.up == false then
+                    last_input.up = true
+                    changePieceOnBoard(active_piece,active_board,0)
+                    rotations.current_rotation = rotations.current_rotation + 1
+                    if rotations.current_rotation > 4 then
+                        rotations.current_rotation = 1
+                    end   
+                    changePieceOnBoard(active_piece,active_board,active_piece:get(Color).color)
+                end
+            end
+        end
+        
+    end
 
+end
 
 Game:addSystem(InputSystem(),             "update")
 Game:addSystem(PieceBucketSystem(),       "update")
@@ -681,7 +922,8 @@ Game:addSystem(ActivePieceSetterSystem(), "update")
 Game:addSystem(MovementSystem(),          "update")
 Game:addSystem(PieceGravitySystem(),      "update")
 Game:addSystem(PieceLockerSystem(),       "update")
-Game:addSystem(InstantPlacementSystem(),  "update")
+Game:addSystem(RotationSystem(),          "update")
+--Game:addSystem(InstantPlacementSystem(),  "update")
 
 
 Game:addSystem(BoardRendererSystem(),          "draw")
