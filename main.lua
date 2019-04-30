@@ -479,12 +479,16 @@ local TimeCounter = Component(function(e)
     e.time_counter = 0
 end)
 
+local GameOver = Component(function(e)
+    e.game_over = false
+end)
+
 --### COMPONENTS END
 
 
 --### ENTITIES START
 local brd = Entity()
-brd:give(Position,250,0)
+brd:give(Position,250,0):give(GameOver)
 brd:give(Grid,board):give(LinesCleared)
 brd:give(CellSize,20):give(Turns)
 brd:give(Color,1):give(HeldPiece)
@@ -699,6 +703,10 @@ function ActivePieceSetterSystem:update()
             for m = 1, #piece_grid[1] do
                 if piece_grid[n][m] ~= 0 then
                     current_cell_to_add = {y = n + piece_position.y, x = m + piece_position.x }
+                    if board_grid[current_cell_to_add.y][current_cell_to_add.x] ~= 0 then 
+                        self.boardPool:get(i):get(GameOver).game_over = true
+                        return
+                    end
                     board_grid[current_cell_to_add.y][current_cell_to_add.x] = color_number
                 end
             end
@@ -1191,7 +1199,8 @@ function ScoreboardRendererSystem:draw()
         love.graphics.print("Lines cleared: " .. board:get(LinesCleared).lines_cleared,500,450,0,1)
         love.graphics.print("Time elapsed: " ..  math.floor(board:get(TimeCounter).time_counter) .. "s",500,470,0,1)
         if pause then
-            love.graphics.print("PAUSED",350,75,0,1) end
+            love.graphics.print("PAUSED",350,75,0,1) 
+        end
     end
 end
 
@@ -1209,6 +1218,18 @@ function PauseSystem:update()
     end
 end
 
+GameOverSystem = System({Input})
+function GameOverSystem:update()
+    local game_over
+    for i = 1, self.pool.size do
+        game_over = self.pool:get(i):get(GameOver)
+        if game_over.game_over then
+            pause = true
+            --love.graphics.print("GAME OVER",350,75,0,1) 
+        end
+    end
+end
+
 
 
 Game:addSystem(LineClearSystem(),         "update")
@@ -1222,7 +1243,7 @@ Game:addSystem(PieceLockerSystem(),       "update")
 Game:addSystem(RotationSystem(),          "update")
 Game:addSystem(TimeCounterSystem(),       "update")
 Game:addSystem(PauseSystem(),             "update")
-
+Game:addSystem(GameOverSystem(),          "update")
 
 Game:addSystem(BoardRendererSystem(),          "draw")
 Game:addSystem(IncomingPiecesRendererSystem(), "draw")
