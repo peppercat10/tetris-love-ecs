@@ -240,6 +240,10 @@ gamedata.colorPatterns = {
     {0.376, 0.815, 0.921},
     {0.376, 0.388, 0.921},
     {0.780, 0.376, 0.921},
-    {0.894, 0.917, 0.4},}
+    {0.894, 0.917, 0.4},
+}
+
+gamedata.piece_list = {"O","L","S","Z","I","J","T"}
+gamedata.pause = false
 
 return gamedata

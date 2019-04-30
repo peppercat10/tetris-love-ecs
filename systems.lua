@@ -1,28 +1,155 @@
-local Concord = require("modules.Concord").init({
-   useEvents = true
-})
+local Concord = require("modules.Concord")
 local Entity    = Concord.entity
 local Component = Concord.component
 local System    = Concord.system
-local Game = Concord.instance()
-Concord.addInstance(Game)
 local gd = require("gamedata")
 local hf = require("helperfunctions")
 local cmp = require("components")
 local ent = require("entities")
-local syst = require("systems")
+local systems = {}
 
-math.randomseed(os.time() )
+function IsCollision(piece,board,direction)
+    --local piece_grid = piece:get(Grid).grid
+    local piece_grid = piece:get(cmp.Rotations).rotations[piece:get(cmp.Rotations).current_rotation]
+    local piece_mutpos = piece:get(cmp.MutablePosition)
+    local board_grid = board:get(cmp.Grid).grid
+    --local current_square,test_square,square_in_board
+    local current_square_color,test_square_color
+    local n_value = 0
+    local m_value = 0
+    if direction == "down" then
+       n_value = 1
+    elseif direction == "left" then
+       m_value = -1
+    elseif direction == "right" then
+       m_value = 1
+    end
+         --Step 1: iterate through all piece squares, ignore squares that belong to the piece and have another occupied square below them
+         
+    for n=1, #piece_grid do
+       for m=1, #piece_grid[1] do
+          current_square_color = piece_grid[n][m]
+          if current_square_color ~= 0 then --colored square
+             if piece_grid[n +n_value] == nil or piece_grid[ n +n_value][ m + m_value] == nil 
+                         or piece_grid[n+n_value][m + m_value] == 0 then --this square must be tested against the board
+                if board_grid[piece_mutpos.y + n + n_value] == nil 
+                         or board_grid[piece_mutpos.y + n + n_value][piece_mutpos.x + m + m_value] ~= 0 then --still inside boundaries
+                   
+                   return true
+                   --if board_grid[piece_mutpos.y + n + 1][m] == 1 then
+                      --return true
+                   
+                end
+             end
+          end
+       end
+    end
+     return false
+ end
+ 
 
-for k,v in pairs(ent) do
-    Game:addEntity(v)
+ function changePieceOnBoard(piece,board,color)
+    --local piece_grid = piece:get(Grid).grid
+    local piece_grid = piece:get(cmp.Rotations).rotations[piece:get(cmp.Rotations).current_rotation]
+    --printGrid(piece_grid)
+    local board_grid = board:get(cmp.Grid).grid
+    local piece_position = piece:get(cmp.MutablePosition)
+    local square
+    for n = 1, #piece_grid do
+        for m = 1, #piece_grid[1] do
+            if piece_grid[n][m] ~= 0 then
+                square = { x = m + piece_position.x, y = n + piece_position.y }
+                board_grid[square.y][square.x] = color
+            end
+        end
+    end    
+end
+ 
+
+ function GetNextRotationNumber(piece,direction)
+     local sum = 0
+     local current_rotation = piece:get(cmp.Rotations).current_rotation
+     if direction == "cw" then 
+         sum = 1
+     elseif direction == "ccw" then
+         sum = -1
+     end
+     current_rotation = current_rotation + sum
+     if current_rotation > 4 then
+         current_rotation = 1
+     elseif current_rotation < 1 then
+         current_rotation = 4
+     end
+     return current_rotation
+ end
+ 
+ 
+ function CanRotate(piece,board,rotation)
+     local current_rotation_number = piece:get(cmp.Rotations).current_rotation
+     local current_piece_grid = piece:get(cmp.Rotations).rotations[current_rotation_number]
+     local future_rotation_number = GetNextRotationNumber(piece,rotation)
+     local future_piece_grid = piece:get(cmp.Rotations).rotations[future_rotation_number]
+     local piece_mutpos = piece:get(cmp.MutablePosition)
+     local board_grid = board:get(cmp.Grid).grid
+     local test_position = {x=0,y=0}
+     local rotation_failed = true
+ 
+     for n=1,#future_piece_grid do
+         for m=1, #future_piece_grid[1] do
+             if future_piece_grid[n][m] ~= 0 and current_piece_grid[n][m] == 0 then
+                 if board_grid[n+piece_mutpos.y][m+piece_mutpos.x] ~= 0 then
+                     goto failed
+                 end
+             end
+         end
+     end
+     rotation_failed = false
+     ::failed::
+     if rotation_failed == false then
+         return {x =0, y = 0}
+     end
+     return nil
+ end
+
+
+systems.BoardRendererSystem = System({cmp.IsBoard})
+function systems.BoardRendererSystem:draw()
+    --if pause then return end
+   local brd
+   for i = 1, self.pool.size do
+      brd = self.pool:get(i)
+
+      local brd_grid = brd:get(cmp.Grid).grid
+      local brd_position = brd:get(cmp.Position)
+      local color_values = brd:get(cmp.ColorValues).color_values
+      local brd_color = color_values[brd:get(cmp.Color).color]
+      local cell_size = brd:get(cmp.CellSize).cell_size
+      local square_color,square_number
+      --local visibility_limit = brd:get(cmp.VisibilityLimit).limit
+      for n = 5, #brd_grid do
+         for m = 1, #brd_grid[1] do
+            square_number = brd_grid[n][m]
+            if square_number ~= 0 then
+               square_color = color_values[square_number]
+               if square_color ~= nil then
+                love.graphics.setColor(square_color)
+                --return
+               else --love.graphics.setcmp.Color(0,0,0)
+                return
+               end
+               love.graphics.rectangle("fill",brd_position.x + (cell_size*m),brd_position.y + (cell_size*n),cell_size,cell_size)
+
+            end
+            love.graphics.setColor(brd_color)
+            love.graphics.rectangle("line", brd_position.x + (cell_size*m), brd_position.y + (cell_size*n),cell_size,cell_size)
+         end
+      end
+   end
 end
 
---### SYSTEMS START
-
-local PieceBucketSystem = System({cmp.VisiblePieces})
-function PieceBucketSystem:update()
-    if pause then return end
+systems.PieceBucketSystem = System({cmp.VisiblePieces})
+function systems.PieceBucketSystem:update()
+    if gd.pause then return end
    local piece_bucket,visible_pieces
    for i = 1, self.pool.size do
       piece_bucket = self.pool:get(i):get(cmp.PieceBucket).pieces
@@ -42,8 +169,8 @@ function PieceBucketSystem:update()
     end
 end
 
-local IncomingPiecesRendererSystem = System({cmp.IsBoard,"boardPool"},{cmp.IsPiece,"piecePool"})
-function IncomingPiecesRendererSystem:drawPiece(piece,x_position,y_position,cell_size)
+systems.IncomingPiecesRendererSystem = System({cmp.IsBoard,"boardPool"},{cmp.IsPiece,"piecePool"})
+function systems.IncomingPiecesRendererSystem:drawPiece(piece,x_position,y_position,cell_size)
     grid = piece:get(cmp.Grid).grid
     color = gd.colorPatterns[piece:get(cmp.Color).color]
     grid_color = gd.colorPatterns[1]
@@ -60,7 +187,7 @@ function IncomingPiecesRendererSystem:drawPiece(piece,x_position,y_position,cell
 
 end
 
-function IncomingPiecesRendererSystem:draw()
+function systems.IncomingPiecesRendererSystem:draw()
     --if pause then return end
     local board, y_draw, cell_size, future_pieces
     for i = 1, self.boardPool.size do
@@ -80,16 +207,16 @@ function IncomingPiecesRendererSystem:draw()
                         break
                     end
                 end                
-                IncomingPiecesRendererSystem:drawPiece(wanted_piece,x_draw,y_current,cell_size)
+                systems.IncomingPiecesRendererSystem:drawPiece(wanted_piece,x_draw,y_current,cell_size)
                 y_current = y_current + y_gap
             end
         end
     end
 end
 
-local ActivePieceSetterSystem = System({cmp.IsBoard,"boardPool"},{cmp.IsPiece,"piecePool"})
-function ActivePieceSetterSystem:update()
-    if pause then return end
+systems.ActivePieceSetterSystem = System({cmp.IsBoard,"boardPool"},{cmp.IsPiece,"piecePool"})
+function systems.ActivePieceSetterSystem:update()
+    if gd.pause then return end
     local active_piece_name
     local active_piece
     local visible_pieces
@@ -138,113 +265,8 @@ function ActivePieceSetterSystem:update()
     end
 end
 
-
-function changePieceOnBoard(piece,board,color)
-    --local piece_grid = piece:get(Grid).grid
-    local piece_grid = piece:get(cmp.Rotations).rotations[piece:get(cmp.Rotations).current_rotation]
-    --printGrid(piece_grid)
-    local board_grid = board:get(cmp.Grid).grid
-    local piece_position = piece:get(cmp.MutablePosition)
-    local square
-    for n = 1, #piece_grid do
-        for m = 1, #piece_grid[1] do
-            if piece_grid[n][m] ~= 0 then
-                square = { x = m + piece_position.x, y = n + piece_position.y }
-                board_grid[square.y][square.x] = color
-            end
-        end
-    end    
-end
-
-function IsCollision(piece,board,direction)
-   --local piece_grid = piece:get(Grid).grid
-   local piece_grid = piece:get(cmp.Rotations).rotations[piece:get(cmp.Rotations).current_rotation]
-   local piece_mutpos = piece:get(cmp.MutablePosition)
-   local board_grid = board:get(cmp.Grid).grid
-   --local current_square,test_square,square_in_board
-   local current_square_color,test_square_color
-   local n_value = 0
-   local m_value = 0
-   if direction == "down" then
-      n_value = 1
-   elseif direction == "left" then
-      m_value = -1
-   elseif direction == "right" then
-      m_value = 1
-   end
-        --Step 1: iterate through all piece squares, ignore squares that belong to the piece and have another occupied square below them
-        
-   for n=1, #piece_grid do
-      for m=1, #piece_grid[1] do
-         current_square_color = piece_grid[n][m]
-         if current_square_color ~= 0 then --colored square
-            if piece_grid[n +n_value] == nil or piece_grid[ n +n_value][ m + m_value] == nil 
-                        or piece_grid[n+n_value][m + m_value] == 0 then --this square must be tested against the board
-               if board_grid[piece_mutpos.y + n + n_value] == nil 
-                        or board_grid[piece_mutpos.y + n + n_value][piece_mutpos.x + m + m_value] ~= 0 then --still inside boundaries
-                  
-                  return true
-                  --if board_grid[piece_mutpos.y + n + 1][m] == 1 then
-                     --return true
-                  
-               end
-            end
-         end
-      end
-   end
-    return false
-end
-
-
-
-function CanRotate(piece,board,rotation)
-    local current_rotation_number = piece:get(cmp.Rotations).current_rotation
-    local current_piece_grid = piece:get(cmp.Rotations).rotations[current_rotation_number]
-    local future_rotation_number = GetNextRotationNumber(piece,rotation)
-    local future_piece_grid = piece:get(cmp.Rotations).rotations[future_rotation_number]
-    local piece_mutpos = piece:get(cmp.MutablePosition)
-    local board_grid = board:get(cmp.Grid).grid
-    local test_position = {x=0,y=0}
-    local rotation_failed = true
-
-    for n=1,#future_piece_grid do
-        for m=1, #future_piece_grid[1] do
-            if future_piece_grid[n][m] ~= 0 and current_piece_grid[n][m] == 0 then
-                if board_grid[n+piece_mutpos.y][m+piece_mutpos.x] ~= 0 then
-                    goto failed
-                end
-            end
-        end
-    end
-    rotation_failed = false
-    ::failed::
-    if rotation_failed == false then
-        return {x =0, y = 0}
-    end
-    return nil
-end
-
-
-function GetNextRotationNumber(piece,direction)
-    local sum = 0
-    local current_rotation = piece:get(cmp.Rotations).current_rotation
-    if direction == "cw" then 
-        sum = 1
-    elseif direction == "ccw" then
-        sum = -1
-    end
-    current_rotation = current_rotation + sum
-    if current_rotation > 4 then
-        current_rotation = 1
-    elseif current_rotation < 1 then
-        current_rotation = 4
-    end
-    return current_rotation
-end
-
-
-local PieceGravitySystem = System({cmp.IsActive,"piecePool"},{cmp.IsBoard,"boardPool"})
-function PieceGravitySystem:pushDown(piece,board)
+systems.PieceGravitySystem = System({cmp.IsActive,"piecePool"},{cmp.IsBoard,"boardPool"})
+function systems.PieceGravitySystem:pushDown(piece,board)
     -- Clear previous position
     if IsCollision(piece,board,"down") == true then
          piece:get(cmp.CanGoDown).can_go_down = false
@@ -258,8 +280,8 @@ function PieceGravitySystem:pushDown(piece,board)
     changePieceOnBoard(piece,board,piece:get(cmp.Color).color)
 end
 
-function PieceGravitySystem:update(dt)
-    if pause then return end
+function systems.PieceGravitySystem:update(dt)
+    if gd.pause then return end
     local active_piece
     local active_board
     for i = 1, self.boardPool.size do
@@ -276,7 +298,7 @@ function PieceGravitySystem:update(dt)
     for i = 1, self.piecePool.size do
         if self.piecePool:get(i):get(cmp.IsActive).active then
             active_piece = self.piecePool:get(i)
-            PieceGravitySystem:pushDown(active_piece,active_board)
+            systems.PieceGravitySystem:pushDown(active_piece,active_board)
             if(active_piece:get(cmp.CanGoDown).can_go_down == true) then
                active_board:get(cmp.LastAction).value = 0
             end
@@ -284,15 +306,15 @@ function PieceGravitySystem:update(dt)
     end
 end
 
-local PieceLockerSystem = System({cmp.IsActive,"piecePool"},{cmp.IsBoard,"boardPool"})
-function PieceLockerSystem:lock(piece,board)
+systems.PieceLockerSystem = System({cmp.IsActive,"piecePool"},{cmp.IsBoard,"boardPool"})
+function systems.PieceLockerSystem:lock(piece,board)
    piece:get(cmp.IsActive).active = false
    table.remove(board:get(cmp.VisiblePieces).pieces,1)
    board:get(cmp.Turns).turns = board:get(cmp.Turns).turns + 1
    --print("locked!")
 end
-function PieceLockerSystem:update()
-    if pause then return end
+function systems.PieceLockerSystem:update()
+    if gd.pause then return end
    local active_piece,active_board,last_action,can_go_down
    for i=1, self.boardPool.size do
       active_board = self.boardPool:get(i)
@@ -307,15 +329,15 @@ function PieceLockerSystem:update()
             --print(active_piece:get(cmp.Name).name)
             --print(can_go_down)
             if last_action >= 0.9 and can_go_down == false then
-                PieceLockerSystem:lock(active_piece,active_board)
+                systems.PieceLockerSystem:lock(active_piece,active_board)
             end
         end
       end
    end
 end
 
-local InputSystem = System({cmp.Input})
-function InputSystem:update(dt)
+systems.InputSystem = System({cmp.Input})
+function systems.InputSystem:update(dt)
     local e
     for i = 1, self.pool.size do
         e = self.pool:get(i)
@@ -333,26 +355,26 @@ function InputSystem:update(dt)
     end
 end
 
-local MovementSystem = System({cmp.IsBoard,"boardPool"},{cmp.IsActive,"piecePool"})
-function MovementSystem:MoveLeft(piece,board)
+systems.MovementSystem = System({cmp.IsBoard,"boardPool"},{cmp.IsActive,"piecePool"})
+function systems.MovementSystem:MoveLeft(piece,board)
     changePieceOnBoard(piece,board,0)
     piece:get(cmp.MutablePosition).x = piece:get(cmp.MutablePosition).x - 1
     changePieceOnBoard(piece,board,piece:get(cmp.Color).color)
 end
 
-function MovementSystem:MoveRight(piece,board)
+function systems.MovementSystem:MoveRight(piece,board)
     changePieceOnBoard(piece,board,0)
     piece:get(cmp.MutablePosition).x = piece:get(cmp.MutablePosition).x + 1
     changePieceOnBoard(piece,board,piece:get(cmp.Color).color)    
 end
 
-function MovementSystem:MoveDown(piece,board)
+function systems.MovementSystem:MoveDown(piece,board)
     changePieceOnBoard(piece,board,0)
     piece:get(cmp.MutablePosition).y = piece:get(cmp.MutablePosition).y + 1
     changePieceOnBoard(piece,board,piece:get(cmp.Color).color)    
 end
 
-function MovementSystem:CanMoveDASARR(board,direction,dt,dasarr)
+function systems.MovementSystem:CanMoveDASARR(board,direction,dt,dasarr)
     --local das = board:get(cmp.DAS)
     local last_input = board:get(cmp.LastInput).inputs
 
@@ -372,8 +394,8 @@ function MovementSystem:CanMoveDASARR(board,direction,dt,dasarr)
 end
 
 
-function MovementSystem:update(dt)
-    if pause then return end
+function systems.MovementSystem:update(dt)
+    if gd.pause then return end
     local active_board, active_piece, cell_size, inputs
     for i = 1, self.boardPool.size do
         active_board = self.boardPool:get(i)
@@ -393,7 +415,7 @@ function MovementSystem:update(dt)
                         if last_inputs.space == false then
                             active_board:get(cmp.LastAction).value = 1.0
                             if not IsCollision(active_piece,active_board,"down") and last_inputs.space == false then
-                                MovementSystem:MoveDown(active_piece,active_board)
+                                systems.MovementSystem:MoveDown(active_piece,active_board)
                             else 
                                 last_inputs.space = true
                                 break
@@ -403,23 +425,23 @@ function MovementSystem:update(dt)
                 end
 
 
-                if inputs.left and MovementSystem:CanMoveDASARR(active_board,"left",dt,das) then
-                    if MovementSystem:CanMoveDASARR(active_board,"left",dt,arr) 
+                if inputs.left and systems.MovementSystem:CanMoveDASARR(active_board,"left",dt,das) then
+                    if systems.MovementSystem:CanMoveDASARR(active_board,"left",dt,arr) 
                             and not IsCollision(active_piece,active_board,"left") then
-                        MovementSystem:MoveLeft(active_piece,active_board)
+                        systems.MovementSystem:MoveLeft(active_piece,active_board)
                         last_inputs.left = true
                     end
 
-                elseif inputs.right and MovementSystem:CanMoveDASARR(active_board,"right",dt,das) then
-                    if MovementSystem:CanMoveDASARR(active_board,"right",dt,arr) 
+                elseif inputs.right and systems.MovementSystem:CanMoveDASARR(active_board,"right",dt,das) then
+                    if systems.MovementSystem:CanMoveDASARR(active_board,"right",dt,arr) 
                             and not IsCollision(active_piece,active_board,"right") then
-                        MovementSystem:MoveRight(active_piece,active_board)
+                        systems.MovementSystem:MoveRight(active_piece,active_board)
                         last_inputs.right = true
                     end
 
-                elseif inputs.down and MovementSystem:CanMoveDASARR(active_board,"down",dt,down_speed) then
+                elseif inputs.down and systems.MovementSystem:CanMoveDASARR(active_board,"down",dt,down_speed) then
                     if not IsCollision(active_piece,active_board,"down") then
-                        MovementSystem:MoveDown(active_piece,active_board)
+                        systems.MovementSystem:MoveDown(active_piece,active_board)
                         last_inputs.down = true
                     end
                 end
@@ -429,21 +451,21 @@ function MovementSystem:update(dt)
     end
 end
 
-local InstantPlacementSystem = System({cmp.IsActive,"piecePool"},{cmp.IsBoard,"boardPool"})
-function InstantPlacementSystem:PlaceInstantly(piece,board)
+systems.InstantPlacementSystem = System({cmp.IsActive,"piecePool"},{cmp.IsBoard,"boardPool"})
+function systems.InstantPlacementSystem:PlaceInstantly(piece,board)
     local board_grid = board:get(cmp.Grid).grid
     local last_non_collision = 1
     for i = 1, #board_grid  do
         if not IsCollision(piece,board,"down") then
-            MovementSystem:MoveDown(piece,board)
+            systems.MovementSystem:MoveDown(piece,board)
         else 
             break
         end
     end
 end
 
-function InstantPlacementSystem:update()
-    if pause then return end
+function systems.InstantPlacementSystem:update()
+    if gd.pause then return end
     local active_board, active_piece, current_input, last_input
     for i = 1, self.boardPool.size do
         active_board = self.boardPool:get(i)
@@ -454,7 +476,7 @@ function InstantPlacementSystem:update()
             for j = 1, self.piecePool.size do
                 active_piece = self.piecePool:get(j)
                 if active_piece:get(cmp.IsActive).active then          
-                    InstantPlacementSystem:PlaceInstantly(active_piece,active_board)
+                    systems.InstantPlacementSystem:PlaceInstantly(active_piece,active_board)
                     --last_input.space = true
                 else
                     --last_input.space = false
@@ -464,9 +486,9 @@ function InstantPlacementSystem:update()
     end
 end
 
-local RotationSystem = System({cmp.IsBoard,"boardPool"},{cmp.IsActive,"piecePool"})
-function RotationSystem:update()
-    if pause then return end
+systems.RotationSystem = System({cmp.IsBoard,"boardPool"},{cmp.IsActive,"piecePool"})
+function systems.RotationSystem:update()
+    if gd.pause then return end
     local active_board, active_piece, current_input, last_input
     for i = 1, self.boardPool.size do
         active_board = self.boardPool:get(i)
@@ -496,10 +518,10 @@ function RotationSystem:update()
 
 end
 
-local PieceHoldSystem = System({cmp.IsBoard,"boardPool"},{cmp.IsActive,"piecePool"})
+systems.PieceHoldSystem = System({cmp.IsBoard,"boardPool"},{cmp.IsActive,"piecePool"})
 
-function PieceHoldSystem:update()
-    if pause then return end
+function systems.PieceHoldSystem:update()
+    if gd.pause then return end
     local active_board,held_piece,active_piece,inputs,turns
     for i=1,self.boardPool.size do
         active_board = self.boardPool:get(i)
@@ -529,8 +551,8 @@ function PieceHoldSystem:update()
     end
 end
 
-local HeldPieceRendererSystem = System({cmp.IsBoard,"boardPool"},{cmp.IsPiece,"piecePool"})
-function HeldPieceRendererSystem:draw()
+systems.HeldPieceRendererSystem = System({cmp.IsBoard,"boardPool"},{cmp.IsPiece,"piecePool"})
+function systems.HeldPieceRendererSystem:draw()
     --if pause then return end
     local board,cell_size,piece,piece_name,piece_grid,color
     local offset = {x = 0, y = 0}
@@ -562,8 +584,8 @@ function HeldPieceRendererSystem:draw()
     end
 end
 
-local LineClearSystem = System({cmp.LinesCleared})
-function LineClearSystem:shiftRight(board_grid,zero_line)
+systems.LineClearSystem = System({cmp.LinesCleared})
+function systems.LineClearSystem:shiftRight(board_grid,zero_line)
     local line_to_shift
     for i=1,zero_line do
         line_to_copy_from = zero_line - i
@@ -577,8 +599,8 @@ function LineClearSystem:shiftRight(board_grid,zero_line)
     end
 end
 
-function LineClearSystem:update()
-    if pause then return end
+function systems.LineClearSystem:update()
+    if gd.pause then return end
     --print(pause)
     local line_clear,board, board_grid
     local lines_to_remove = {}
@@ -599,36 +621,36 @@ function LineClearSystem:update()
         end
         for j=1, #lines_to_remove do
             --printArray(lines_to_remove)
-            LineClearSystem:shiftRight(board_grid,lines_to_remove[j])
+            systems.LineClearSystem:shiftRight(board_grid,lines_to_remove[j])
             --board_grid[lines_to_remove[j]] = {0,0,0,0,0,0,0,0,0,0}
         end
         line_clear.turn_checked = line_clear.turn_checked + 1
     end
 end
 
-TimeCounterSystem = System({cmp.TimeCounter})
-function TimeCounterSystem:update(dt)
+systems.TimeCounterSystem = System({cmp.TimeCounter})
+function systems.TimeCounterSystem:update(dt)
     for i=1, self.pool.size do
         self.pool:get(i):get(cmp.TimeCounter).time_counter = self.pool:get(i):get(cmp.TimeCounter).time_counter + dt
     end
 end
 
-ScoreboardRendererSystem = System({cmp.LinesCleared,cmp.TimeCounter})
-function ScoreboardRendererSystem:draw()
+systems.ScoreboardRendererSystem = System({cmp.LinesCleared,cmp.TimeCounter})
+function systems.ScoreboardRendererSystem:draw()
     --if pause then return end
     local board
     for i = 1, self.pool.size do
         board = self.pool:get(i)
         love.graphics.print("Lines cleared: " .. board:get(cmp.LinesCleared).lines_cleared,500,450,0,1)
         love.graphics.print("Time elapsed: " ..  math.floor(board:get(cmp.TimeCounter).time_counter) .. "s",500,470,0,1)
-        if pause then
+        if gd.pause then
             love.graphics.print("PAUSED",350,75,0,1) 
         end
     end
 end
 
-PauseSystem = System({cmp.Input})
-function PauseSystem:update()
+systems.PauseSystem = System({cmp.Input})
+function systems.PauseSystem:update()
     local input, last_input
     for i = 1, self.pool.size do
         input = self.pool:get(i):get(cmp.Input).inputs
@@ -636,40 +658,21 @@ function PauseSystem:update()
         if last_input.p == true then return end
         if input.p == true then
             last_input.p = true
-            if pause == false then pause = true else pause = false end
+            if gd.pause == false then gd.pause = true else gd.pause = false end
         end
     end
 end
 
-GameOverSystem = System({cmp.Input})
-function GameOverSystem:update()
+systems.GameOverSystem = System({cmp.Input})
+function systems.GameOverSystem:update()
     local game_over
     for i = 1, self.pool.size do
         game_over = self.pool:get(i):get(cmp.GameOver)
         if game_over.game_over then
-            pause = true
+            gd.pause = true
             --love.graphics.print("GAME OVER",350,75,0,1) 
         end
     end
 end
 
-
-
-Game:addSystem(syst.LineClearSystem(),         "update")
-Game:addSystem(syst.InputSystem(),             "update")
-Game:addSystem(syst.PieceBucketSystem(),       "update")
-Game:addSystem(syst.PieceHoldSystem(),         "update")
-Game:addSystem(syst.ActivePieceSetterSystem(), "update")
-Game:addSystem(syst.MovementSystem(),          "update")
-Game:addSystem(syst.PieceGravitySystem(),      "update")
-Game:addSystem(syst.PieceLockerSystem(),       "update")
-Game:addSystem(syst.RotationSystem(),          "update")
-Game:addSystem(syst.TimeCounterSystem(),       "update")
-Game:addSystem(syst.PauseSystem(),             "update")
-Game:addSystem(syst.GameOverSystem(),          "update")
-
-Game:addSystem(syst.BoardRendererSystem(),          "draw")
-Game:addSystem(syst.IncomingPiecesRendererSystem(), "draw")
-Game:addSystem(syst.HeldPieceRendererSystem(),      "draw")
-Game:addSystem(syst.ScoreboardRendererSystem(),     "draw")
---### SYSTEMS END
+return systems
