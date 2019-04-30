@@ -239,6 +239,7 @@ local Z_rotations = {
     },    
 }
 
+local pause = false
 
 --[[ local general_wallkick_tests = {
     {{0},{0},{0},{0},{0}},
@@ -291,7 +292,7 @@ local piece_list = {"O","L","S","Z","I","J","T"}
 --local piece_list = {"O","O","O","O","O","O","O"}
 
 local colorPatterns = {
-    {1,1,1},
+    {1,1,1,0.5},
     {0.921, 0.376, 0.376},
     {0.921, 0.662, 0.376},
     {0.490, 0.921, 0.376},
@@ -392,12 +393,19 @@ local Input = Component(function(e,keys)
 local ARR = Component(function(e,rate)
    e.max = 1.0 / rate
    e.current = 0
+   e.must_be_reset = true
    end)
+
+local DownSpeed = Component(function(e,rate)
+    e.max = 1.0 / rate
+    e.current = 0
+    e.must_be_reset = true
+    end)
 
 local DAS = Component(function(e,value)
    e.max = value
    e.current = 0
-   e.activated = false
+   --e.activated = false
    end)
 
 local PieceBucket = Component(function(e)
@@ -453,21 +461,39 @@ local WallKicks = Component(function(e,wallkicks)
     e.wallkicks = wallkicks
 end)
 
+local HeldPiece = Component(function(e)
+    e.held_piece = ""
+    e.turn_held = 0
+end)
+
+local Turns = Component(function(e)
+    e.turns = 1
+end)
+
+local LinesCleared = Component(function(e)
+    e.lines_cleared = 0
+    e.turn_checked = 0
+end)
+
+local TimeCounter = Component(function(e)
+    e.time_counter = 0
+end)
+
 --### COMPONENTS END
 
 
 --### ENTITIES START
 local brd = Entity()
 brd:give(Position,250,0)
-brd:give(Grid,board)
-brd:give(CellSize,20)
-brd:give(Color,1)
+brd:give(Grid,board):give(LinesCleared)
+brd:give(CellSize,20):give(Turns)
+brd:give(Color,1):give(HeldPiece)
 brd:give(ColorValues,colorPatterns)
-brd:give(IsBoard):give(LastInput,{"left","right","up","down","space","c","z"})
-brd:give(PieceBucket):give(Input,{"left","right","up","down","space","c","z"})
+brd:give(IsBoard):give(LastInput,{"left","right","up","down","space","c","z","p"})
+brd:give(PieceBucket):give(Input,{"left","right","up","down","space","c","z","p"})
 brd:give(VisiblePieces):give(LastAction)
-brd:give(DAS,0.132)
-brd:give(ARR,30)
+brd:give(DAS,0.132):give(TimeCounter)
+brd:give(ARR,30):give(DownSpeed,70)
 --brd:give(VisibilityLimit,20)
 Game:addEntity(brd)
 
@@ -533,7 +559,7 @@ Game:addEntity(piece_O)
 --### SYSTEMS START
 local BoardRendererSystem = System({IsBoard})
 function BoardRendererSystem:draw()
-
+    --if pause then return end
    local brd
    for i = 1, self.pool.size do
       brd = self.pool:get(i)
@@ -550,7 +576,12 @@ function BoardRendererSystem:draw()
             square_number = brd_grid[n][m]
             if square_number ~= 0 then
                square_color = color_values[square_number]
-               love.graphics.setColor(square_color)
+               if square_color ~= nil then
+                love.graphics.setColor(square_color)
+                --return
+               else --love.graphics.setColor(0,0,0)
+                return
+               end
                love.graphics.rectangle("fill",brd_position.x + (cell_size*m),brd_position.y + (cell_size*n),cell_size,cell_size)
 
             end
@@ -563,6 +594,7 @@ end
 
 local PieceBucketSystem = System({PieceBucket,VisiblePieces})
 function PieceBucketSystem:update()
+    if pause then return end
    local piece_bucket,visible_pieces
    for i = 1, self.pool.size do
       piece_bucket = self.pool:get(i):get(PieceBucket).pieces
@@ -601,6 +633,7 @@ function IncomingPiecesRendererSystem:drawPiece(piece,x_position,y_position,cell
 end
 
 function IncomingPiecesRendererSystem:draw()
+    --if pause then return end
     local board, y_draw, cell_size, future_pieces
     for i = 1, self.boardPool.size do
         board = self.boardPool:get(i)
@@ -628,6 +661,7 @@ end
 
 local ActivePieceSetterSystem = System({IsBoard,"boardPool"},{IsPiece,"piecePool"})
 function ActivePieceSetterSystem:update()
+    if pause then return end
     local active_piece_name
     local active_piece
     local visible_pieces
@@ -741,30 +775,20 @@ function CanRotate(piece,board,rotation)
     local wallkicks = piece:get(WallKicks).wallkicks
     local test_position = {x=0,y=0}
     local rotation_failed = true
-    printGrid(board_grid)
-    for i=1, #wallkicks do
-        test_position.x = piece_mutpos.x + wallkicks[i][1]
-        test_position.y = piece_mutpos.y + wallkicks[i][2]
-        for n=1,#future_piece_grid do
-            for m=1, #future_piece_grid[1] do
-                if future_piece_grid[n][m] ~= 0 and current_piece_grid[n][m] == 0 then
-                    if board_grid[n+test_position.y][m+test_position.x] ~= 0 then
-                        print("failed at:")
-                        print("row: " .. n)
-                        print("column: " .. m)
-                        print("Board: " .. m+test_position.x .. " " .. n+test_position.y )
-                        print(board_grid[n+test_position.y][m+test_position.x] )
-                        print("end failure")
-                        goto failed
-                    end
+
+    for n=1,#future_piece_grid do
+        for m=1, #future_piece_grid[1] do
+            if future_piece_grid[n][m] ~= 0 and current_piece_grid[n][m] == 0 then
+                if board_grid[n+piece_mutpos.y][m+piece_mutpos.x] ~= 0 then
+                    goto failed
                 end
             end
         end
-        rotation_failed = false
-        ::failed::
-        if rotation_failed == false then
-            return {x = wallkicks[i][1], y = wallkicks[i][2]}
-        end
+    end
+    rotation_failed = false
+    ::failed::
+    if rotation_failed == false then
+        return {x =0, y = 0}
     end
     return nil
 end
@@ -804,6 +828,7 @@ function PieceGravitySystem:pushDown(piece,board)
 end
 
 function PieceGravitySystem:update(dt)
+    if pause then return end
     local active_piece
     local active_board
     for i = 1, self.boardPool.size do
@@ -832,9 +857,11 @@ local PieceLockerSystem = System({IsActive,"piecePool"},{IsBoard,"boardPool"})
 function PieceLockerSystem:lock(piece,board)
    piece:get(IsActive).active = false
    table.remove(board:get(VisiblePieces).pieces,1)
+   board:get(Turns).turns = board:get(Turns).turns + 1
    --print("locked!")
 end
 function PieceLockerSystem:update()
+    if pause then return end
    local active_piece,active_board,last_action,can_go_down
    for i=1, self.boardPool.size do
       active_board = self.boardPool:get(i)
@@ -894,25 +921,28 @@ function MovementSystem:MoveDown(piece,board)
     changePieceOnBoard(piece,board,piece:get(Color).color)    
 end
 
-function MovementSystem:CanMoveDAS(board,direction,dt)
-    local das = board:get(DAS)
+function MovementSystem:CanMoveDASARR(board,direction,dt,dasarr)
+    --local das = board:get(DAS)
     local last_input = board:get(LastInput).inputs
 
     if last_input[direction] == false then
-        das.current = 0
+        dasarr.current = 0
         return true
     end
-    if das.current >= das.max then
+    if dasarr.current >= dasarr.max then
+        if dasarr.must_be_reset then
+            dasarr.current = 0
+        end
         return true
     else
-        das.current = das.current + dt
+        dasarr.current = dasarr.current + dt
         return false
     end
-
-
 end
 
+
 function MovementSystem:update(dt)
+    if pause then return end
     local active_board, active_piece, cell_size, inputs
     for i = 1, self.boardPool.size do
         active_board = self.boardPool:get(i)
@@ -922,6 +952,8 @@ function MovementSystem:update(dt)
             if self.piecePool:get(j):get(IsActive).active then
                 active_piece = self.piecePool:get(j)
                 local das = active_board:get(DAS)
+                local arr = active_board:get(ARR)
+                local down_speed = active_board:get(DownSpeed)
                 local last_inputs = active_board:get(LastInput).inputs
                 if inputs.space then
                     local grid_size = #active_board:get(Grid).grid
@@ -940,21 +972,24 @@ function MovementSystem:update(dt)
                 end
 
 
-                if inputs.left and MovementSystem:CanMoveDAS(active_board,"left",dt) then
-                    if not IsCollision(active_piece,active_board,"left") then
+                if inputs.left and MovementSystem:CanMoveDASARR(active_board,"left",dt,das) then
+                    if MovementSystem:CanMoveDASARR(active_board,"left",dt,arr) 
+                            and not IsCollision(active_piece,active_board,"left") then
                         MovementSystem:MoveLeft(active_piece,active_board)
                         last_inputs.left = true
                     end
 
-                elseif inputs.right and MovementSystem:CanMoveDAS(active_board,"right",dt) then
-                    if not IsCollision(active_piece,active_board,"right") then
+                elseif inputs.right and MovementSystem:CanMoveDASARR(active_board,"right",dt,das) then
+                    if MovementSystem:CanMoveDASARR(active_board,"right",dt,arr) 
+                            and not IsCollision(active_piece,active_board,"right") then
                         MovementSystem:MoveRight(active_piece,active_board)
                         last_inputs.right = true
                     end
 
-                elseif inputs.down then
+                elseif inputs.down and MovementSystem:CanMoveDASARR(active_board,"down",dt,down_speed) then
                     if not IsCollision(active_piece,active_board,"down") then
                         MovementSystem:MoveDown(active_piece,active_board)
+                        last_inputs.down = true
                     end
                 end
                 
@@ -977,6 +1012,7 @@ function InstantPlacementSystem:PlaceInstantly(piece,board)
 end
 
 function InstantPlacementSystem:update()
+    if pause then return end
     local active_board, active_piece, current_input, last_input
     for i = 1, self.boardPool.size do
         active_board = self.boardPool:get(i)
@@ -999,6 +1035,7 @@ end
 
 local RotationSystem = System({IsBoard,"boardPool"},{IsActive,"piecePool"})
 function RotationSystem:update()
+    if pause then return end
     local active_board, active_piece, current_input, last_input
     for i = 1, self.boardPool.size do
         active_board = self.boardPool:get(i)
@@ -1028,19 +1065,167 @@ function RotationSystem:update()
 
 end
 
---local PieceDebugDrawSystem = System({})
+local PieceHoldSystem = System({IsBoard,"boardPool"},{IsActive,"piecePool"})
 
+function PieceHoldSystem:update()
+    if pause then return end
+    local active_board,held_piece,active_piece,inputs,turns
+    for i=1,self.boardPool.size do
+        active_board = self.boardPool:get(i)
+        turns = active_board:get(Turns).turns
+        held_piece = active_board:get(HeldPiece)
+        inputs = active_board:get(Input).inputs
+        if held_piece.turn_held == turns then
+            return
+        end
+        if inputs.c then
+            for j=1,self.piecePool.size do
+                active_piece = self.piecePool:get(j)
+                if active_piece:get(IsActive).active then
+                    print("hello")
+                    active_piece:get(IsActive).active = false
+                    changePieceOnBoard(active_piece,active_board,0)
+                    if held_piece.held_piece ~= "" then
+                       active_board:get(VisiblePieces).pieces[1] = held_piece.held_piece
+                    else
+                        table.remove(active_board:get(VisiblePieces).pieces,1)
+                    end
+                    held_piece.held_piece = active_piece:get(Name).name
+                    held_piece.turn_held = turns
+                end
+            end
+        end
+    end
+end
+
+local HeldPieceRendererSystem = System({IsBoard,"boardPool"},{IsPiece,"piecePool"})
+function HeldPieceRendererSystem:draw()
+    --if pause then return end
+    local board,cell_size,piece,piece_name,piece_grid,color
+    local offset = {x = 0, y = 0}
+    for i=1, self.boardPool.size do
+        board = self.boardPool:get(i)
+        cell_size = board:get(CellSize).cell_size
+        piece_name = board:get(HeldPiece).held_piece
+        if piece_name == "" then return end
+        for j=1, self.piecePool.size do
+            if piece_name == self.piecePool:get(j):get(Name).name then
+                piece = self.piecePool:get(j)
+                color = piece:get(Color).color
+                break
+            end
+        end
+        piece_grid = piece:get(Grid).grid
+        offset.x = board:get(Position).x - 5*cell_size
+        offset.y = board:get(Position).y + 4*cell_size
+        for n = 1, #piece_grid do
+            for m = 1, #piece_grid[1] do
+                if piece_grid[n][m] ~= 0 then
+                    love.graphics.setColor(board:get(ColorValues).color_values[color])
+                    love.graphics.rectangle("fill",offset.x + m*cell_size,offset.y + n*cell_size, cell_size, cell_size)
+                    love.graphics.setColor(board:get(ColorValues).color_values[1])
+                    love.graphics.rectangle("line",offset.x + m*cell_size,offset.y + n*cell_size, cell_size, cell_size)
+                end
+            end
+        end
+    end
+end
+
+local LineClearSystem = System({LinesCleared})
+function LineClearSystem:shiftRight(board_grid,zero_line)
+    local line_to_shift
+    for i=1,zero_line do
+        line_to_copy_from = zero_line - i
+        if line_to_copy_from == 0 then return end
+        print(line_to_copy_from)
+        line_to_paste_to = zero_line - (i - 1)
+        print(line_to_paste_to)
+        for j = 1, #board_grid[1] do
+            board_grid[line_to_paste_to][j] = board_grid[line_to_copy_from][j]
+        end
+    end
+end
+
+function LineClearSystem:update()
+    if pause then return end
+    --print(pause)
+    local line_clear,board, board_grid
+    local lines_to_remove = {}
+    for i=1,self.pool.size do
+        board = self.pool:get(i)
+        line_clear = board:get(LinesCleared)
+        if line_clear.turn_checked == board:get(Turns).turns then return end
+        board_grid = board:get(Grid).grid
+        for n=1, #board_grid do
+            for m=1, #board_grid[1] do
+                if board_grid[n][m] == 0 then goto not_clear end
+            end
+            table.insert(lines_to_remove,n)
+            line_clear.lines_cleared = line_clear.lines_cleared + 1
+            --table.remove(board_grid[n])
+            --table.insert(board_grid,1,{0,0,0,0,0,0,0,0,0,0})
+            ::not_clear::
+        end
+        for j=1, #lines_to_remove do
+            printArray(lines_to_remove)
+            LineClearSystem:shiftRight(board_grid,lines_to_remove[j])
+            --board_grid[lines_to_remove[j]] = {0,0,0,0,0,0,0,0,0,0}
+        end
+        line_clear.turn_checked = line_clear.turn_checked + 1
+    end
+end
+
+TimeCounterSystem = System({TimeCounter})
+function TimeCounterSystem:update(dt)
+    for i=1, self.pool.size do
+        self.pool:get(i):get(TimeCounter).time_counter = self.pool:get(i):get(TimeCounter).time_counter + dt
+    end
+end
+
+ScoreboardRendererSystem = System({LinesCleared,TimeCounter})
+function ScoreboardRendererSystem:draw()
+    --if pause then return end
+    local board
+    for i = 1, self.pool.size do
+        board = self.pool:get(i)
+        love.graphics.print("Lines cleared: " .. board:get(LinesCleared).lines_cleared,500,450,0,1)
+        love.graphics.print("Time elapsed: " ..  math.floor(board:get(TimeCounter).time_counter) .. "s",500,470,0,1)
+        if pause then
+            love.graphics.print("PAUSED",350,75,0,1) end
+    end
+end
+
+PauseSystem = System({Input})
+function PauseSystem:update()
+    local input, last_input
+    for i = 1, self.pool.size do
+        input = self.pool:get(i):get(Input).inputs
+        last_input = self.pool:get(i):get(LastInput).inputs
+        if last_input.p == true then return end
+        if input.p == true then
+            last_input.p = true
+            if pause == false then pause = true else pause = false end
+        end
+    end
+end
+
+
+
+Game:addSystem(LineClearSystem(),         "update")
 Game:addSystem(InputSystem(),             "update")
 Game:addSystem(PieceBucketSystem(),       "update")
+Game:addSystem(PieceHoldSystem(),         "update")
 Game:addSystem(ActivePieceSetterSystem(), "update")
 Game:addSystem(MovementSystem(),          "update")
 Game:addSystem(PieceGravitySystem(),      "update")
 Game:addSystem(PieceLockerSystem(),       "update")
 Game:addSystem(RotationSystem(),          "update")
---Game:addSystem(InstantPlacementSystem(),  "update")
+Game:addSystem(TimeCounterSystem(),       "update")
+Game:addSystem(PauseSystem(),             "update")
 
 
 Game:addSystem(BoardRendererSystem(),          "draw")
 Game:addSystem(IncomingPiecesRendererSystem(), "draw")
-
+Game:addSystem(HeldPieceRendererSystem(),      "draw")
+Game:addSystem(ScoreboardRendererSystem(),     "draw")
 --### SYSTEMS END
