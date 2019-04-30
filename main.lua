@@ -8,12 +8,14 @@ local System    = Concord.system
 local Game = Concord.instance()
 Concord.addInstance(Game)
 
-local board = {    
-	{0,0,0,0,0,0,0,0,0,0},
-	{0,0,0,0,0,0,0,0,0,0},
+local board = {
+    {0,0,0,0,0,0,0,0,0,0},
     {0,0,0,0,0,0,0,0,0,0},
 	{0,0,0,0,0,0,0,0,0,0},
 	{0,0,0,0,0,0,0,0,0,0},
+    {0,0,0,0,0,0,0,0,0,0}, --end of visibility
+	{0,0,0,0,0,0,0,0,0,0},
+	{0,0,0,0,0,0,0,0,0,0},
 	{0,0,0,0,0,0,0,0,0,0},
 	{0,0,0,0,0,0,0,0,0,0},
 	{0,0,0,0,0,0,0,0,0,0},
@@ -30,7 +32,7 @@ local board = {
 	{0,0,0,0,0,0,0,0,0,0},
 	{0,0,0,0,0,0,0,0,0,0},
 	{0,0,0,0,0,0,0,0,0,0},
-	{0,0,0,0,0,0,0,0,0,0},	
+	{0,0,0,0,0,0,0,0,0,0},
 }
 
 
@@ -238,12 +240,55 @@ local Z_rotations = {
 }
 
 
+--[[ local general_wallkick_tests = {
+    {{0},{0},{0},{0},{0}},
+    {{0},{0},{0},{0},{0}},
+    {{0},{0},{0},{0},{0}},
+    {{0},{0},{0},{0},{0}},
+    {{0},{0},{0},{0},{0}},
+    {{0},{0},{0},{0},{0}},
+    {{0},{0},{0},{0},{0}},
+    {{0},{0},{0},{0},{0}}
+}
+
+
+general_wallkick_tests[1][2] = {{0,0},{-1, 0},{-1,-1},{0, 2},{-1, 2}}
+general_wallkick_tests[2][1] = {{0,0},{ 1, 0},{ 1, 1},{0,-2},{ 1,-2}}
+general_wallkick_tests[2][3] = {{0,0},{ 1, 0},{ 1, 1},{0,-2},{ 1,-2}}
+general_wallkick_tests[3][2] = {{0,0},{-1, 0},{-1,-1},{0, 2},{-1, 2}}
+general_wallkick_tests[3][4] = {{0,0},{ 1, 0},{ 1,-1},{0, 2},{ 1, 2}}
+general_wallkick_tests[4][3] = {{0,0},{-1, 0},{-1, 1},{0,-2},{-1,-2}}
+general_wallkick_tests[4][1] = {{0,0},{-1, 0},{-1, 1},{0,-2},{-1,-2}}
+general_wallkick_tests[1][4] = {{0,0},{ 1, 0},{ 1,-1},{0, 2},{ 1, 2}}
+
+local I_wallkick_tests = {
+    {{0},{0},{0},{0},{0}},
+    {{0},{0},{0},{0},{0}},
+    {{0},{0},{0},{0},{0}},
+    {{0},{0},{0},{0},{0}},
+    {{0},{0},{0},{0},{0}},
+    {{0},{0},{0},{0},{0}},
+    {{0},{0},{0},{0},{0}},
+    {{0},{0},{0},{0},{0}}
+}
+
+I_wallkick_tests[1][2] = {{0,0},{-2,0},{1,0},{-2,1},{1,-2}}
+I_wallkick_tests[2][1] = {{0,0},{2,0},{-1,0},{2,-1},{-1,2}}
+I_wallkick_tests[2][3] = {{0,0},{-1,0},{2,0},{-1,-2},{2,1}}
+I_wallkick_tests[3][2] = {{0,0},{1,0},{-2,0},{1,2},{-2,-1}}
+I_wallkick_tests[3][4] = {{0,0},{2,0},{-1,0},{2,-1},{-1,2}}
+I_wallkick_tests[4][3] = {{0,0},{-2,0},{1,0},{-2,1},{1,-2}}
+I_wallkick_tests[4][1] = {{0,0},{1,0},{-2,0},{1,2},{-2,-1}}
+I_wallkick_tests[1][4] = {{0,0},{-1,0},{2,0},{-1,-2},{2,1}} ]]
+
+general_wallkick_tests = {{0,0},{-1,0},{1,0}}
+
 local piece_matrices = {I = I_matrix, J = J_matrix, L = L_matrix, O = O_matrix,S=S_matrix,T=T_matrix,Z = Z_matrix}
 
 
 math.randomseed(os.time() )
 local piece_list = {"O","L","S","Z","I","J","T"}
---local piece_list = {"O","O","O","Z","O","J","T"}
+--local piece_list = {"O","O","O","O","O","O","O"}
 
 local colorPatterns = {
     {1,1,1},
@@ -285,7 +330,7 @@ end
 function printArray(arr)
     local final_line = ""
     for i=1, #arr do
-        final_line = final_line .. arr[i]
+        final_line = final_line .. " " .. arr[i]
     end
     print(final_line)
     print("===")
@@ -403,12 +448,17 @@ local Rotations = Component(function(e,rotations)
     e.rotations = rotations
     e.current_rotation = 1
 end)
+
+local WallKicks = Component(function(e,wallkicks)
+    e.wallkicks = wallkicks
+end)
+
 --### COMPONENTS END
 
 
 --### ENTITIES START
 local brd = Entity()
-brd:give(Position,250,100)
+brd:give(Position,250,0)
 brd:give(Grid,board)
 brd:give(CellSize,20)
 brd:give(Color,1)
@@ -424,57 +474,57 @@ Game:addEntity(brd)
 local piece_J = Entity()
 piece_J:give(Grid,J_matrix):give(Rotations,J_rotations)
 piece_J:give(Color,2)
-piece_J:give(IsPiece)
+piece_J:give(IsPiece):give(WallKicks,general_wallkick_tests)
 piece_J:give(Name,"J"):give(CanGoDown)
-piece_J:give(IsActive,false):give(Position,3,1):give(MutablePosition,3,1)
+piece_J:give(IsActive,false):give(Position,3,3):give(MutablePosition,3,3)
 Game:addEntity(piece_J)
 
 local piece_L = Entity()
 piece_L:give(Grid,L_matrix):give(Rotations,L_rotations)
 piece_L:give(Color,3)
-piece_L:give(IsPiece)
+piece_L:give(IsPiece):give(WallKicks,general_wallkick_tests)
 piece_L:give(Name,"L"):give(CanGoDown)
-piece_L:give(IsActive,false):give(Position,3,1):give(MutablePosition,3,1)
+piece_L:give(IsActive,false):give(Position,3,3):give(MutablePosition,3,3)
 Game:addEntity(piece_L)
 
 local piece_T = Entity()
 piece_T:give(Grid,T_matrix):give(Rotations,T_rotations)
 piece_T:give(Color,4)
-piece_T:give(IsPiece)
+piece_T:give(IsPiece):give(WallKicks,general_wallkick_tests)
 piece_T:give(Name,"T"):give(CanGoDown)
-piece_T:give(IsActive,false):give(Position,3,1):give(MutablePosition,3,1)
+piece_T:give(IsActive,false):give(Position,3,3):give(MutablePosition,3,3)
 Game:addEntity(piece_T)
 
 local piece_S = Entity()
 piece_S:give(Grid,S_matrix):give(Rotations,S_rotations)
 piece_S:give(Color,5)
-piece_S:give(IsPiece)
+piece_S:give(IsPiece):give(WallKicks,general_wallkick_tests)
 piece_S:give(Name,"S"):give(CanGoDown)
-piece_S:give(IsActive,false):give(Position,3,1):give(MutablePosition,3,1)
+piece_S:give(IsActive,false):give(Position,3,3):give(MutablePosition,3,3)
 Game:addEntity(piece_S)
 
 local piece_Z = Entity()
 piece_Z:give(Grid,Z_matrix):give(Rotations,Z_rotations)
 piece_Z:give(Color,6)
-piece_Z:give(IsPiece)
+piece_Z:give(IsPiece):give(WallKicks,general_wallkick_tests)
 piece_Z:give(Name,"Z"):give(CanGoDown)
-piece_Z:give(IsActive,false):give(Position,3,1):give(MutablePosition,3,1)
+piece_Z:give(IsActive,false):give(Position,3,3):give(MutablePosition,3,3)
 Game:addEntity(piece_Z)
 
 local piece_I = Entity()
 piece_I:give(Grid,I_matrix):give(Rotations,I_rotations)
 piece_I:give(Color,7)
-piece_I:give(IsPiece)
+piece_I:give(IsPiece):give(WallKicks,general_wallkick_tests)
 piece_I:give(Name,"I"):give(CanGoDown)
-piece_I:give(IsActive,false):give(Position,3,1):give(MutablePosition,3,1)
+piece_I:give(IsActive,false):give(Position,3,3):give(MutablePosition,3,3)
 Game:addEntity(piece_I)
 
 local piece_O = Entity()
 piece_O:give(Grid,O_matrix):give(Rotations,O_rotations)
 piece_O:give(Color,8)
-piece_O:give(IsPiece)
+piece_O:give(IsPiece):give(WallKicks,general_wallkick_tests)
 piece_O:give(Name,"O"):give(CanGoDown)
-piece_O:give(IsActive,false):give(Position,4,1):give(MutablePosition,4,1)
+piece_O:give(IsActive,false):give(Position,5,3):give(MutablePosition,5,3)
 Game:addEntity(piece_O)
 
 
@@ -495,13 +545,14 @@ function BoardRendererSystem:draw()
       local cell_size = brd:get(CellSize).cell_size
       local square_color,square_number
       --local visibility_limit = brd:get(VisibilityLimit).limit
-      for n = 3, #brd_grid do
+      for n = 5, #brd_grid do
          for m = 1, #brd_grid[1] do
             square_number = brd_grid[n][m]
             if square_number ~= 0 then
                square_color = color_values[square_number]
                love.graphics.setColor(square_color)
                love.graphics.rectangle("fill",brd_position.x + (cell_size*m),brd_position.y + (cell_size*n),cell_size,cell_size)
+
             end
             love.graphics.setColor(brd_color)
             love.graphics.rectangle("line", brd_position.x + (cell_size*m), brd_position.y + (cell_size*n),cell_size,cell_size)
@@ -555,8 +606,8 @@ function IncomingPiecesRendererSystem:draw()
         board = self.boardPool:get(i)
         future_pieces = board:get(VisiblePieces).pieces
         cell_size = board:get(CellSize).cell_size
-        x_draw = cell_size * (#board:get(Grid).grid + 3.5)
-        y_draw = board:get(Position).y + cell_size*2
+        x_draw = cell_size * (#board:get(Grid).grid)
+        y_draw = board:get(Position).y + cell_size*4
         y_gap = cell_size * 3
         if #future_pieces > 0 then
             local y_current = y_draw
@@ -607,12 +658,13 @@ function ActivePieceSetterSystem:update()
         active_piece:get(MutablePosition).x = piece_position.x
         active_piece:get(MutablePosition).y = piece_position.y
         active_piece:get(CanGoDown).can_go_down = true
+        active_piece:get(Rotations).current_rotation = 1
         local color_number = active_piece:get(Color).color
         local current_cell_to_add
         for n = 1, #piece_grid do
             for m = 1, #piece_grid[1] do
                 if piece_grid[n][m] ~= 0 then
-                    current_cell_to_add = {y = n + piece_position.y, x = m+piece_position.x }
+                    current_cell_to_add = {y = n + piece_position.y, x = m + piece_position.x }
                     board_grid[current_cell_to_add.y][current_cell_to_add.x] = color_number
                 end
             end
@@ -660,7 +712,7 @@ function IsCollision(piece,board,direction)
       for m=1, #piece_grid[1] do
          current_square_color = piece_grid[n][m]
          if current_square_color ~= 0 then --colored square
-            if piece_grid[n+n_value] == nil or piece_grid[n+n_value][m + m_value] == nil 
+            if piece_grid[n +n_value] == nil or piece_grid[ n +n_value][ m + m_value] == nil 
                         or piece_grid[n+n_value][m + m_value] == 0 then --this square must be tested against the board
                if board_grid[piece_mutpos.y + n + n_value] == nil 
                         or board_grid[piece_mutpos.y + n + n_value][piece_mutpos.x + m + m_value] ~= 0 then --still inside boundaries
@@ -677,6 +729,63 @@ function IsCollision(piece,board,direction)
     return false
 end
 
+
+
+function CanRotate(piece,board,rotation)
+    local current_rotation_number = piece:get(Rotations).current_rotation
+    local current_piece_grid = piece:get(Rotations).rotations[current_rotation_number]
+    local future_rotation_number = GetNextRotationNumber(piece,rotation)
+    local future_piece_grid = piece:get(Rotations).rotations[future_rotation_number]
+    local piece_mutpos = piece:get(MutablePosition)
+    local board_grid = board:get(Grid).grid
+    local wallkicks = piece:get(WallKicks).wallkicks
+    local test_position = {x=0,y=0}
+    local rotation_failed = true
+    printGrid(board_grid)
+    for i=1, #wallkicks do
+        test_position.x = piece_mutpos.x + wallkicks[i][1]
+        test_position.y = piece_mutpos.y + wallkicks[i][2]
+        for n=1,#future_piece_grid do
+            for m=1, #future_piece_grid[1] do
+                if future_piece_grid[n][m] ~= 0 and current_piece_grid[n][m] == 0 then
+                    if board_grid[n+test_position.y][m+test_position.x] ~= 0 then
+                        print("failed at:")
+                        print("row: " .. n)
+                        print("column: " .. m)
+                        print("Board: " .. m+test_position.x .. " " .. n+test_position.y )
+                        print(board_grid[n+test_position.y][m+test_position.x] )
+                        print("end failure")
+                        goto failed
+                    end
+                end
+            end
+        end
+        rotation_failed = false
+        ::failed::
+        if rotation_failed == false then
+            return {x = wallkicks[i][1], y = wallkicks[i][2]}
+        end
+    end
+    return nil
+end
+
+
+function GetNextRotationNumber(piece,direction)
+    local sum = 0
+    local current_rotation = piece:get(Rotations).current_rotation
+    if direction == "cw" then 
+        sum = 1
+    elseif direction == "ccw" then
+        sum = -1
+    end
+    current_rotation = current_rotation + sum
+    if current_rotation > 4 then
+        current_rotation = 1
+    elseif current_rotation < 1 then
+        current_rotation = 4
+    end
+    return current_rotation
+end
 
 
 local PieceGravitySystem = System({IsActive,"piecePool"},{IsBoard,"boardPool"})
@@ -899,15 +1008,18 @@ function RotationSystem:update()
         for j = 1, self.piecePool.size do
             active_piece = self.piecePool:get(j)
             local rotations = active_piece:get(Rotations)
+            local position_to_rotate
             if active_piece:get(IsActive).active then
                 if current_input.up == true and last_input.up == false then
                     last_input.up = true
-                    changePieceOnBoard(active_piece,active_board,0)
-                    rotations.current_rotation = rotations.current_rotation + 1
-                    if rotations.current_rotation > 4 then
-                        rotations.current_rotation = 1
-                    end   
-                    changePieceOnBoard(active_piece,active_board,active_piece:get(Color).color)
+                    position_to_rotate = CanRotate(active_piece,active_board,"cw") 
+                    if position_to_rotate ~= nil then
+                        changePieceOnBoard(active_piece,active_board,0)
+                        active_piece:get(MutablePosition).x = active_piece:get(MutablePosition).x + position_to_rotate.x
+                        active_piece:get(MutablePosition).y = active_piece:get(MutablePosition).y + position_to_rotate.y
+                        rotations.current_rotation = GetNextRotationNumber(active_piece,"cw")
+                        changePieceOnBoard(active_piece,active_board,active_piece:get(Color).color)
+                    end
                 end
             end
         end
@@ -915,6 +1027,8 @@ function RotationSystem:update()
     end
 
 end
+
+--local PieceDebugDrawSystem = System({})
 
 Game:addSystem(InputSystem(),             "update")
 Game:addSystem(PieceBucketSystem(),       "update")
