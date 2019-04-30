@@ -22,3 +22,5 @@ This was done to experiment with ECS and love2d. The keys are not configurable a
 * Hold piece: **C**
 * Pause the game: **P**
 * Restart the game: **R**
+
+![](game.png)
