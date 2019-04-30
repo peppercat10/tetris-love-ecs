@@ -616,4 +616,20 @@ function systems.GameOverSystem:update()
     end
 end
 
+systems.RestartSystem = System({cmp.Input})
+function systems.RestartSystem:update()
+    local board,input,last_input
+    for i = 1, self.pool.size do
+        board = self.pool:get(i)
+        input = self.pool:get(i):get(cmp.Input).inputs
+        last_input = self.pool:get(i):get(cmp.LastInput).inputs
+        if last_input.r == true then return end
+        if input.r == true then
+            love.event.quit("restart")
+        end
+        end             
+end
+
+
+
 return systems

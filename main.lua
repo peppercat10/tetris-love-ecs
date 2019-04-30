@@ -33,6 +33,7 @@ Game:addSystem(syst.RotationSystem(),          "update")
 Game:addSystem(syst.TimeCounterSystem(),       "update")
 Game:addSystem(syst.PauseSystem(),             "update")
 Game:addSystem(syst.GameOverSystem(),          "update")
+Game:addSystem(syst.RestartSystem(),           "update")
 
 Game:addSystem(syst.BoardRendererSystem(),          "draw")
 Game:addSystem(syst.IncomingPiecesRendererSystem(), "draw")
