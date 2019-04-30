@@ -449,17 +449,22 @@ function systems.RotationSystem:update()
             active_piece = self.piecePool:get(j)
             local rotations = active_piece:get(cmp.Rotations)
             local position_to_rotate
+            local direction_to_rotate = "cw"
             if active_piece:get(cmp.IsActive).active then
                 if current_input.up == true and last_input.up == false then
                     last_input.up = true
-                    position_to_rotate = CanRotate(active_piece,active_board,"cw") 
-                    if position_to_rotate ~= nil then
-                        changePieceOnBoard(active_piece,active_board,0)
-                        active_piece:get(cmp.MutablePosition).x = active_piece:get(cmp.MutablePosition).x + position_to_rotate.x
-                        active_piece:get(cmp.MutablePosition).y = active_piece:get(cmp.MutablePosition).y + position_to_rotate.y
-                        rotations.current_rotation = GetNextRotationNumber(active_piece,"cw")
-                        changePieceOnBoard(active_piece,active_board,active_piece:get(cmp.Color).color)
-                    end
+                    position_to_rotate = CanRotate(active_piece,active_board,direction_to_rotate)
+                elseif current_input.z == true and last_input.z == false then
+                    last_input.z = true
+                    position_to_rotate = CanRotate(active_piece,active_board,"ccw")
+                    direction_to_rotate = "ccw"
+                end
+                if position_to_rotate ~= nil then
+                    changePieceOnBoard(active_piece,active_board,0)
+                    active_piece:get(cmp.MutablePosition).x = active_piece:get(cmp.MutablePosition).x + position_to_rotate.x
+                    active_piece:get(cmp.MutablePosition).y = active_piece:get(cmp.MutablePosition).y + position_to_rotate.y
+                    rotations.current_rotation = GetNextRotationNumber(active_piece,direction_to_rotate)
+                    changePieceOnBoard(active_piece,active_board,active_piece:get(cmp.Color).color)
                 end
             end
         end

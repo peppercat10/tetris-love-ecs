@@ -12,3 +12,4 @@ Developed in lua using the [love2d](https://love2d.org) framework.
 
 The ECS library is [Concord](https://github.com/Tjakka5/Concord/).
 
+This was done to experiment with ECS
