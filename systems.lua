@@ -1,4 +1,4 @@
-la21afd4550f2382a223fba8b576b7d24f4e5d00iocal Concord = require("modules.Concord")
+local Concord = require("modules.Concord")
 local Entity    = Concord.entity
 local Component = Concord.component
 local System    = Concord.system
