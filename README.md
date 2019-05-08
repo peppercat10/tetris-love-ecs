@@ -23,4 +23,6 @@ This was done to experiment with ECS and love2d. The keys are not configurable a
 * Pause the game: **P**
 * Restart the game: **R**
 
+To play, get the [latest release](https://github.com/pikashira/tetris-love-ecs/releases/latest).
+
 ![](game.png)
