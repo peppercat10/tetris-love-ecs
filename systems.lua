@@ -1,4 +1,4 @@
-local Concord = require("modules.Concord")
+la21afd4550f2382a223fba8b576b7d24f4e5d00iocal Concord = require("modules.Concord")
 local Entity    = Concord.entity
 local Component = Concord.component
 local System    = Concord.system
@@ -543,9 +543,9 @@ function systems.LineClearSystem:shiftRight(board_grid,zero_line)
     for i=1,zero_line do
         line_to_copy_from = zero_line - i
         if line_to_copy_from == 0 then return end
-        print(line_to_copy_from)
+        --print(line_to_copy_from)
         line_to_paste_to = zero_line - (i - 1)
-        print(line_to_paste_to)
+        --print(line_to_paste_to)
         for j = 1, #board_grid[1] do
             board_grid[line_to_paste_to][j] = board_grid[line_to_copy_from][j]
         end
